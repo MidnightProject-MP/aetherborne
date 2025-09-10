@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deterministic Game PoC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(13, 1fr);
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tile {
+            width: 30px;
+            height: 30px;
+            background-color: #4a5568;
+            border: 1px solid #2d3748;
+        }
+        .tile.floor { background-color: #a0aec0; }
+        .tile.wall { background-color: #2d3748; }
+        .tile.player { background-color: #48bb78; }
+        .tile.enemy { background-color: #f56565; }
+        .log-box {
+            background-color: #2d3748;
+            border-radius: 8px;
+            padding: 1rem;
+            height: 200px;
+            overflow-y: scroll;
+        }
+        .button {
+            @apply px-4 py-2 rounded-lg font-semibold text-white transition-colors duration-200;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto p-4 max-w-2xl">
+        <h1 class="text-3xl font-bold mb-4 text-center">Deterministic Game PoC</h1>
+        <p class="text-sm text-center mb-6 text-gray-400">
+            This client-side game runs on a deterministic engine. The replay will be validated by the server.
+        </p>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex-1 flex flex-col items-center">
+                <div id="game-container" class="game-grid shadow-lg mb-4"></div>
+                <div class="flex flex-col items-center">
+                    <div class="flex gap-2 mb-2">
+                        <button id="move-up" class="button bg-gray-500 hover:bg-gray-600">Up</button>
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <button id="move-left" class="button bg-gray-500 hover:bg-gray-600">Left</button>
+                        <button id="move-right" class="button bg-gray-500 hover:bg-gray-600">Right</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="move-down" class="button bg-gray-500 hover:bg-gray-600">Down</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-inner">
+                    <h2 class="text-2xl font-semibold mb-2">Game State</h2>
+                    <pre id="game-state-display" class="text-xs text-green-300"></pre>
+                </div>
+                <div class="mt-4">
+                    <button id="submit-replay" class="button bg-blue-500 hover:bg-blue-600 w-full">Submit Replay to Server</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Core game engine - identical to the server version
+        class GameEngine {
+            constructor(seed, mapTemplate) {
+                this.seed = seed;
+                this.mapTemplate = mapTemplate;
+                this.rng = this.createSeededRNG(this.seed);
+                this.gameState = {
+                    player: {
+                        x: 0,
+                        y: 0,
+                        health: 100,
+                        attack_power: 10,
+                        level: 1,
+                        xp: 0
+                    },
+                    enemies: []
+                };
+                this.initializeGameState();
+            }
+
+            createSeededRNG(seed) {
+                let h = 1779033703 ^ seed.length;
+                for (let i = 0; i < seed.length; i++) {
+                    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+                    h = h << 13 | h >>> 19;
+                }
+                return function() {
+                    h = Math.imul(h ^ h >>> 16, 2246822507);
+                    h = Math.imul(h ^ h >>> 13, 3266489909);
+                    return (h ^= h >>> 16) >>> 0;
+                };
+            }
+
+            initializeGameState() {
+                this.gameState.player.x = 0;
+                this.gameState.player.y = 0;
+
+                for (let y = 0; y < this.mapTemplate.height; y++) {
+                    for (let x = 0; x < this.mapTemplate.width; x++) {
+                        if (this.mapTemplate.tiles[y][x] === 'floor') {
+                            if (this.rng() % 100 < 10) {
+                                this.gameState.enemies.push({
+                                    x: x,
+                                    y: y,
+                                    health: 20,
+                                    attack_power: 5
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            isValidMove(x, y) {
+                if (x < 0 || x >= this.mapTemplate.width || y < 0 || y >= this.mapTemplate.height) {
+                    return false;
+                }
+                return this.mapTemplate.tiles[y][x] === 'floor';
+            }
+
+            executeMove(move) {
+                if (!this.isValidMove(move.x, move.y)) {
+                    return this.gameState;
+                }
+                
+                this.gameState.player.x = move.x;
+                this.gameState.player.y = move.y;
+
+                this.gameState.enemies = this.gameState.enemies.filter(enemy => {
+                    if (enemy.x === move.x && enemy.y === move.y) {
+                        enemy.health -= this.gameState.player.attack_power;
+                        this.gameState.player.health -= enemy.attack_power;
+                        return enemy.health > 0;
+                    }
+                    return true;
+                });
+                
+                this.gameState.player.xp += this.gameState.enemies.length;
+                return this.gameState;
+            }
+        }
+
+        // === Client-Side Game Logic ===
+        const MAP_TEMPLATE = {
+            width: 11,
+            height: 13,
+            tiles: [
+                ['floor', 'floor', 'floor', 'wall', 'wall', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+                ['floor', 'wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
+                ['floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor'],
+                ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
+                ['wall', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall'],
+                ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
+                ['floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor'],
+                ['floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+                ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor'],
+                ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+                ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor'],
+                ['wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+                ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
+            ]
+        };
+
+        const SESSION_SEED = "my_first_game_session"; // Hardcoded for this PoC
+
+        let game;
+        let replayLog = [];
+        const gameStateDisplay = document.getElementById('game-state-display');
+        const gameContainer = document.getElementById('game-container');
+        const submitButton = document.getElementById('submit-replay');
+        
+        function initializeGame() {
+            game = new GameEngine(SESSION_SEED, MAP_TEMPLATE);
+            renderGame();
+            updateGameStateDisplay();
+        }
+
+        function renderGame() {
+            gameContainer.innerHTML = '';
+            for (let y = 0; y < MAP_TEMPLATE.height; y++) {
+                for (let x = 0; x < MAP_TEMPLATE.width; x++) {
+                    const tile = document.createElement('div');
+                    tile.className = `tile ${MAP_TEMPLATE.tiles[y][x]}`;
+                    
+                    if (x === game.gameState.player.x && y === game.gameState.player.y) {
+                        tile.classList.add('player');
+                    }
+                    if (game.gameState.enemies.some(e => e.x === x && e.y === y)) {
+                        tile.classList.add('enemy');
+                    }
+                    gameContainer.appendChild(tile);
+                }
+            }
+        }
+
+        function updateGameStateDisplay() {
+            gameStateDisplay.textContent = JSON.stringify(game.gameState, null, 2);
+        }
+
+        function handleMove(dx, dy) {
+            const newX = game.gameState.player.x + dx;
+            const newY = game.gameState.player.y + dy;
+
+            if (game.isValidMove(newX, newY)) {
+                const move = { x: newX, y: newY };
+                replayLog.push(move);
+                game.executeMove(move);
+                renderGame();
+                updateGameStateDisplay();
+            }
+        }
+
+        document.getElementById('move-up').addEventListener('click', () => handleMove(0, -1));
+        document.getElementById('move-down').addEventListener('click', () => handleMove(0, 1));
+        document.getElementById('move-left').addEventListener('click', () => handleMove(-1, 0));
+        document.getElementById('move-right').addEventListener('click', () => handleMove(1, 0));
+
+        submitButton.addEventListener('click', async () => {
+            const data = {
+                session_id: SESSION_SEED,
+                replay_log: replayLog,
+                initial_state: {
+                    player: {
+                        x: 0,
+                        y: 0,
+                        health: 100,
+                        attack_power: 10,
+                        level: 1,
+                        xp: 0
+                    }
+                }
+            };
+            
+            // This is where you would make a call to your Apps Script backend
+            console.log("Submitting replay to server...", data);
+            
+            // For the PoC, we will just log the successful submission
+            alert("Replay submitted! Check the Apps Script backend for validation logic.");
+        });
+
+        // Initialize the game when the page loads
+        window.onload = initializeGame;
+
+    </script>
+</body>
+</html>
