@@ -1,21 +1,22 @@
 import { GameStateManager } from './gameStateManager.js';
 import { CharacterCreator } from './characterCreator.js';
 import Game from './game.js';
-import CONFIG from './config.js'; 
-// import MapOverlayManager from './ui/mapOverlayManager.js'; // MapOverlayManager is now integrated into SVGRenderer
+import CONFIG from './config.js';
 import StatusEffectSystem from './systems/statusEffectSystem.js';
 import VisibilitySystem from './systems/visibilitySystem.js';
 import TargetPreviewSystem from './systems/targetPreviewSystem.js';
-import DetectionSystem from './systems/detectionSystem.js'; // New: Import DetectionSystem
+import DetectionSystem from './systems/detectionSystem.js';
 import IntentSystem from './systems/intentSystem.js';
 import PlayerHUD from './ui/playerHUD.js';
+import { startNewGame, getGameConfig } from './apiService.js';
 
 /**
  * Orchestrates the initialization sequence of the game.
  */
 export class Orchestrator {
-    constructor(eventBus) {
+    constructor(eventBus, highScoreManager) {
         this.eventBus = eventBus;
+        this.highScoreManager = highScoreManager;
         this.gameStateManager = null;
         this.characterCreator = null;
         this.intentSystem = null;
@@ -24,9 +25,23 @@ export class Orchestrator {
         this.statusEffectSystem = null;
         this.detectionSystem = null; // New: DetectionSystem instance
         this.visibilitySystem = null;
-        // this.mapOverlayManager = null; // No longer needed, as SVGRenderer handles overlays
         this.initializationSequence = this.createInitializationSequence();
+        this.config = null; // Will hold the merged game configuration
+
+        this.bindEventHandlers();
         this.handleTransitionToSplash = this.handleTransitionToSplash.bind(this);
+    }
+
+    bindEventHandlers() {
+        this.eventBus.subscribe('gameOver', this.handleGameOver.bind(this));
+    }
+
+    async handleGameOver(payload = {}) {
+        console.log("[Orchestrator] Game Over event received:", payload.message);
+        if (payload.characterData && typeof payload.score !== 'undefined') {
+            const playerName = payload.characterData.name || "Anonymous Hero";
+            await this.highScoreManager.savePlayerScore(playerName, payload.score);
+        }
     }
 
     handleTransitionToSplash() {
@@ -79,8 +94,23 @@ export class Orchestrator {
                 console.log('[Orchestrator] START button clicked. Publishing transitionToCharacterCreation event.');
                 this.eventBus.publish('transitionToCharacterCreation');
             });
+        }
+    }
+
+    /**
+     * Wires up the high scores button to trigger fetching and displaying scores.
+     */
+    wireHighScoreButton() {
+        // NOTE: This assumes a button with id 'high-scores-btn' exists on the splash screen.
+        const highScoresBtn = document.getElementById('high-scores-btn');
+        if (highScoresBtn) {
+            console.log("[Orchestrator] High Scores button found, attaching click handler");
+            highScoresBtn.addEventListener('click', () => {
+                console.log('[Orchestrator] High Scores button clicked. Displaying scores.');
+                this.highScoreManager.displayHighScores();
+            });
         } else {
-            console.warn('[Orchestrator] START button not found!');
+            console.warn('[Orchestrator] High Scores button (high-scores-btn) not found!');
         }
     }
 
@@ -92,8 +122,15 @@ export class Orchestrator {
         await this.waitForDOM();
         console.log("[Orchestrator] DOM is ready.");
 
+        // NEW STEP: Fetch dynamic config from server and merge with static config.
+        console.log("[Orchestrator] Fetching game configuration from server...");
+        const dynamicConfig = await getGameConfig();
+        this.config = { ...CONFIG, ...dynamicConfig };
+        console.log("[Orchestrator] Game configuration loaded.");
+
         // Wire up splash screen button here
         this.wireSplashScreenStartButton();
+        this.wireHighScoreButton();
 
         // 2. Initialize GameStateManager first
         this.gameStateManager = await this.initializeGameStateManager();
@@ -101,7 +138,7 @@ export class Orchestrator {
 
         // 3. Initialize CharacterCreator with proper error handling
         console.log("[Orchestrator] Attempting CharacterCreator initialization...");
-        this.characterCreator = await this.initializeCharacterCreator();
+        this.characterCreator = await this.initializeCharacterCreator(this.config); // Pass config
         console.log("[Orchestrator] CharacterCreator result:", this.characterCreator);
         if (!this.characterCreator) {
             console.error("[Orchestrator] CharacterCreator creation failed. Aborting game startup.");
@@ -120,15 +157,24 @@ export class Orchestrator {
         const characterData = await this.waitForCharacterCreation();
         console.log("[Orchestrator] Character created.");
 
-        // 7. Create Game instance directly here
+        // 7. Request a new game session from the server BEFORE creating the game instance.
+        console.log("[Orchestrator] Requesting new game session from server...");
+        // We hardcode 'map_01' for now. This could come from a map selection screen.
+        const sessionData = await startNewGame('map_01');
+        console.log("[Orchestrator] Session data received:", sessionData);
+
+        // 8. Create Game instance directly here, now with server-authoritative session data.
         this.gameInstance = new Game(
             this.eventBus,
             'map',
-            CONFIG.grid.hexSize,
-            characterData
+            this.config.grid.hexSize,
+            characterData,
+            null, // intentSystem is set below
+            sessionData, // Pass the new session data
+            this.config // Pass the full merged config
         );
 
-        // 8. Initialize all game systems and set them on the Game instance BEFORE initializing the map.
+        // 9. Initialize all game systems and set them on the Game instance BEFORE initializing the map.
         // This ensures they are available during the map setup process.
         this.intentSystem = new IntentSystem(this.eventBus, this.gameInstance);
         this.gameInstance.setIntentSystem(this.intentSystem);
@@ -140,7 +186,7 @@ export class Orchestrator {
         this.gameInstance.setStatusEffectSystem(this.statusEffectSystem);
         this.targetPreviewSystem = new TargetPreviewSystem(this.eventBus, this.gameInstance, this.gameInstance.interactionModel);
 
-        // 9. Now, initialize the map layout and entities. This will use the systems we just set up.
+        // 10. Now, initialize the map layout and entities. This will use the systems we just set up.
         await this.gameInstance.initializeLayoutAndMap(characterData);
         if (!this.gameInstance.player) {
             console.error("[Orchestrator] Game instance failed to create player. Aborting.");
@@ -148,7 +194,7 @@ export class Orchestrator {
         }
         console.log("[Orchestrator] Game instance created and initialized.");
 
-        // 10. Set up PlayerInputComponent event listeners
+        // 11. Set up PlayerInputComponent event listeners
         if (this.gameInstance.player) {
             const playerInputComp = this.gameInstance.player.getComponent('playerInput');
             if (playerInputComp) {
@@ -163,8 +209,7 @@ export class Orchestrator {
                 });
             }
         }
-        
-        // 11. Initialize PlayerHUD and wire up references
+        // 12. Initialize PlayerHUD and wire up references
         this.playerHUD = new PlayerHUD(this.eventBus);
         // Defensive: check before wiring
         if (!this.gameInstance.gameMap) {
@@ -188,19 +233,20 @@ export class Orchestrator {
             });
         }
 
-        // 12. Signal ready
+        // 13. Signal ready
         await this.signalGameReady();
         console.log("[Orchestrator] Game Ready signal sent.");
 
         // Yield a final value if the for-await-of loop expects something.
         yield 'InitializationSequenceComplete';
-
     }
 
     /**
-     * Starts the initialization sequence.
+     * The main entry point to start the application's initialization sequence.
+     * Called from main.js.
      */
     async start() {
+        console.log("[Orchestrator] Starting initialization sequence...");
         for await (const step of this.initializationSequence) {
             // Each step is already executed in the generator, so we just iterate.
         }
@@ -235,7 +281,7 @@ export class Orchestrator {
     /**
      * Initializes the CharacterCreator.
      */
-    initializeCharacterCreator() {
+    initializeCharacterCreator(config) {
         return new Promise((resolve) => {
             console.log("[Orchestrator] Starting CharacterCreator initialization...");
             const container = document.getElementById('character-creation-poc');
@@ -247,7 +293,7 @@ export class Orchestrator {
             }
 
             try {
-                const characterCreator = new CharacterCreator(container, this.eventBus);
+                const characterCreator = new CharacterCreator(container, this.eventBus, config);
                 console.log("[Orchestrator] CharacterCreator local instance before resolve:", characterCreator);
                 resolve(characterCreator); // Resolve with the created instance
             } catch (error) {

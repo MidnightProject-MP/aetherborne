@@ -117,17 +117,144 @@ function getSheet(sheetName) {
   return ss.getSheetByName(sheetName);
 }
 
-function logReplay(sheetName, sessionId, seed, mapTemplate, replayLog, finalState) {
+/**
+ * Logs a replay from an AI agent to the specified sheet.
+ */
+function logAiReplay(sheetName, sessionId, seed, mapTemplate, replayLog, finalState) {
   const sheet = getSheet(sheetName);
-  const data = [
-    sessionId,
-    seed,
-    JSON.stringify(mapTemplate),
-    JSON.stringify(replayLog),
-    JSON.stringify(finalState),
-    new Date()
-  ];
-  sheet.appendRow(data);
+  if (sheet) {
+    sheet.appendRow([
+      sessionId,
+      seed,
+      JSON.stringify(mapTemplate),
+      JSON.stringify(replayLog),
+      JSON.stringify(finalState),
+      new Date()
+    ]);
+  }
+}
+
+/**
+ * Logs a replay from a player to the specified sheet, including verification status.
+ */
+function logPlayerReplay(sheetName, sessionId, seed, mapTemplate, replayLog, finalState, isVerified) {
+  const sheet = getSheet(sheetName);
+  if (sheet) {
+    const verificationStatus = isVerified ? 'VERIFIED' : 'MISMATCH';
+    sheet.appendRow([sessionId, seed, JSON.stringify(mapTemplate), JSON.stringify(replayLog), JSON.stringify(finalState), new Date(), verificationStatus]);
+  }
+}
+
+/**
+ * Fetches and returns the top 10 high scores from the 'HighScores' sheet.
+ */
+function handleGetHighScores() {
+  const sheet = getSheet('HighScores');
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+  // Assumes headers: Name, Score, Timestamp. Skips header row [0].
+  const scores = data.slice(1)
+    .map(row => ({ name: row[0], score: parseInt(row[1], 10) }))
+    .filter(item => !isNaN(item.score)) // Ensure score is a number
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  
+  return scores;
+}
+
+/**
+ * Converts a sheet's data into an object map, using the first row as headers.
+ * The object is keyed by the values in the first column (ID column).
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The sheet to process.
+ * @returns {Object} An object where keys are the ID from the first column.
+ */
+function sheetToObjects(sheet) {
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return {};
+  
+  const headers = data.shift(); // Get and remove header row
+  
+  const result = {};
+
+  data.forEach(row => {
+    const id = row[0];
+    if (!id) return; // Skip rows without an ID
+
+    const entry = {};
+    headers.forEach((header, index) => {
+      if (index === 0) return; // Skip the ID column itself from being a property
+
+      let value = row[index];
+      // If a column header ends with _JSON, parse the value.
+      if (header.endsWith('_JSON') && typeof value === 'string' && value.trim()) {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          console.error(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
+          value = {}; // Default to empty object on parse error
+        }
+      }
+      // Convert header to camelCase key (e.g., "BaseStats_JSON" -> "baseStats")
+      const key = header.replace(/_JSON$/, '');
+      const camelCaseKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
+      entry[camelCaseKey] = value;
+    });
+    result[id] = entry;
+  });
+  
+  return result;
+}
+
+/**
+ * Fetches all core game configuration data from their respective sheets.
+ */
+function handleGetGameConfig() {
+    // NOTE: This assumes you have sheets named 'Archetypes', 'Skills', 'Traits', 'StatusEffects'
+    const archetypes = sheetToObjects(getSheet('Archetypes'));
+    const skills = sheetToObjects(getSheet('Skills'));
+    const traits = sheetToObjects(getSheet('Traits'));
+    const statusEffects = sheetToObjects(getSheet('StatusEffects'));
+    
+    // We only return the parts of the config that are stored in sheets.
+    // The client will be responsible for merging this with the static parts of its config.
+    return {
+        archetypes,
+        skills,
+        traits,
+        statusEffects
+    };
+}
+
+/**
+ * Handles a request to start a new game.
+ * @param {Object} e The event parameter from doGet.
+ * @returns {Object} A data object for the new session: { sessionId, seed, mapTemplate }.
+ */
+function handleNewGame(e) {
+  const mapId = e.parameter.mapId;
+  if (!mapId) {
+    throw new Error("Parameter 'mapId' is required for action 'newGame'.");
+  }
+
+  const mapsSheet = getSheet('Maps');
+  if (!mapsSheet) throw new Error("Critical Error: Sheet 'Maps' not found.");
+  
+  const mapsData = mapsSheet.getDataRange().getValues();
+  const mapRow = mapsData.find(row => row[0] === mapId);
+  if (!mapRow) throw new Error(`Map with ID '${mapId}' not found.`);
+  
+  const mapTemplate = JSON.parse(mapRow[2]); // Assumes template is in the 3rd column
+
+  const sessionId = Utilities.getUuid();
+  const seed = new Date().getTime().toString();
+
+  const sessionsSheet = getSheet('GameSessions');
+  if (sessionsSheet) {
+    sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED']);
+  }
+  return { sessionId, seed, mapTemplate };
 }
 
 // --- DATA ACCESS ---
@@ -171,7 +298,7 @@ function runAiAgent() {
     }
   }
   
-  logReplay(agentSheetName, sessionId, seed, mapTemplate, replayLog, game.gameState);
+  logAiReplay(agentSheetName, sessionId, seed, mapTemplate, replayLog, game.gameState);
   console.log(`AI agent session completed: ${sessionId}`);
 }
 
@@ -181,25 +308,108 @@ function runAiAgent() {
  * @param {Object} e The event object from the GET request.
  */
 function doGet(e) {
-  const sessionId = e.parameter.sessionId;
-  const sheet = getSheet('AI_Agent_001');
-  const values = sheet.getDataRange().getValues();
+  try {
+    const action = e.parameter.action;
+    let responseData;
 
-  for (const row of values) {
-    if (row[0] === sessionId) {
-      const replayData = {
-        sessionId: row[0],
-        seed: row[1],
-        mapTemplate: JSON.parse(row[2]),
-        replayLog: JSON.parse(row[3])
-      };
-      return ContentService.createTextOutput(JSON.stringify(replayData))
-        .setMimeType(ContentService.MimeType.JSON);
+    if (action === 'getHighScores') {
+      responseData = handleGetHighScores();
+    } else if (action === 'getGameConfig') {
+      responseData = handleGetGameConfig();
+    } else if (action === 'newGame') {
+      responseData = handleNewGame(e);
+    } else { // Default action is getting a replay for backward compatibility
+      const sessionId = e.parameter.sessionId;
+      if (!sessionId) throw new Error("Parameter 'action' or 'sessionId' is required.");
+      
+      const sheetsToSearch = ['AI_Agent_001', 'Player_Replays'];
+      for (const sheetName of sheetsToSearch) {
+        const sheet = getSheet(sheetName);
+        if (!sheet) continue;
+        const values = sheet.getDataRange().getValues();
+        for (let i = values.length - 1; i >= 0; i--) {
+          if (values[i][0] === sessionId) {
+            responseData = { sessionId: values[i][0], seed: values[i][1], mapTemplate: JSON.parse(values[i][2]), replayLog: JSON.parse(values[i][3]) };
+            break;
+          }
+        }
+        if (responseData) break;
+      }
+      if (!responseData) throw new Error(`Replay with sessionId '${sessionId}' not found.`);
     }
-  }
 
-  return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Replay not found' }))
-    .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    console.error('doGet Error:', error);
+    const statusCode = error.message.includes("not found") ? 404 : 400;
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message })).setMimeType(ContentService.MimeType.JSON).setStatusCode(statusCode);
+  }
 }
 
-// TODO: Create a doPost function for player replay validation.
+/**
+ * @constant POC_MAP_TEMPLATE
+ * @description The map template used in the client PoC. This is needed for server-side validation.
+ * In a real app, this would be fetched by the client at the start of a session, not hardcoded here.
+ */
+const POC_MAP_TEMPLATE = {
+    width: 11,
+    height: 13,
+    tiles: [
+        ['floor', 'floor', 'floor', 'wall', 'wall', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+        ['floor', 'wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
+        ['floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor'],
+        ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
+        ['wall', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall'],
+        ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
+        ['floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor'],
+        ['floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+        ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor'],
+        ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
+        ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor'],
+        ['wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+        ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
+    ]
+};
+
+/**
+ * @function doPost
+ * @description Handles player-submitted replays for validation and storage.
+ * @param {Object} e The event object from the POST request.
+ */
+function doPost(e) {
+  try {
+    const request = JSON.parse(e.postData.contents);
+    const { action, payload } = request;
+
+    if (!action || !payload) {
+      throw new Error("Request must include 'action' and 'payload' properties.");
+    }
+
+    if (action === 'submitScore') {
+      const { name, score } = payload;
+      if (!name || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'name' (string) and 'score' (number).");
+      
+      const sheet = getSheet('HighScores');
+      sheet.appendRow([name, score, new Date()]);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' })).setMimeType(ContentService.MimeType.JSON);
+
+    } else if (action === 'submitReplay') {
+      const { session_id, replay_log, final_state_client } = payload;
+      const playerReplaySheet = 'Player_Replays';
+      const seed = session_id;
+      const mapTemplate = POC_MAP_TEMPLATE; // In a real app, this should be part of the payload or fetched.
+
+      const game = new GameEngine(seed, mapTemplate);
+      const finalStateServer = game.playGame(replay_log);
+      const isVerified = JSON.stringify(finalStateServer) === JSON.stringify(final_state_client);
+      logPlayerReplay(playerReplaySheet, session_id, seed, mapTemplate, replay_log, finalStateServer, isVerified);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Replay received.' })).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      throw new Error(`Unknown action: '${action}'.`);
+    }
+  } catch (error) {
+    console.error('doPost Error:', error);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
+      .setMimeType(ContentService.MimeType.JSON).setStatusCode(400);
+  }
+}

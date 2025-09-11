@@ -2,22 +2,34 @@ import { GameState } from './gameState.js';
 import { Layout, Point } from './tile.js';
 import GameMap from './map.js';
 import EntityFactory from './entity-factory.js';
-import CONFIG from './config.js'; 
 import SVGRenderer from './ui/svgRenderer.js'; // Import the new SVGRenderer
 import DetectionSystem from './systems/detectionSystem.js'; // New: Import DetectionSystem
+import { createSeededRNG } from './utils.js';
 
-export default class Game {
-    constructor(eventBus, canvasId, hexSize, characterData, intentSystem = null) {
+/**
+ * Represents the core game logic, state, and main loop.
+ */
+export class Game {
+    /**
+     * @param {EventBus} eventBus The central event bus.
+     */
+    constructor(eventBus, canvasId, hexSize, characterData, intentSystem = null, sessionData, config) {
         this.eventBus = eventBus;
         this.canvasId = canvasId;
         this.hexSize = hexSize;
         this.characterData = characterData;
-        this.CONFIG = CONFIG; // Expose CONFIG to other systems via the game instance
+        this.CONFIG = config; // Expose CONFIG to other systems via the game instance
         this.intentSystem = intentSystem;
         this.statusEffectSystem = null;
         this.detectionSystem = null; // New: DetectionSystem instance
         this.visibilitySystem = null;
         this.interactionModel = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'mobile' : 'desktop';
+        
+        // --- Server-Authoritative Data ---
+        this.sessionData = sessionData;
+        this.sessionId = sessionData.sessionId;
+        this.rng = createSeededRNG(sessionData.seed);
+        console.log(`[Game] Initializing with session ${this.sessionId} and seed ${sessionData.seed}`);
 
         this.gameState = new GameState();
         this.gameState.isAnimating = false; // Add a flag to prevent actions during animations
@@ -51,8 +63,9 @@ export default class Game {
         });
 
         // 2. Get map configuration
-        const mapId = this.characterData.currentMapId || CONFIG.prologueStartMapId;
-        const mapConfig = CONFIG.prologueMapData.find(map => map.id === mapId);
+        const mapConfig = this.sessionData.mapTemplate;
+        const mapId = mapConfig.id; // Assuming the template has an ID
+
         if (!mapConfig) {
             this.handleGameOver(`Error: Map config for ID "${mapId}" not found.`);
             return;
@@ -60,7 +73,7 @@ export default class Game {
 
         // 3. Create the final layout and renderer. The origin is (0,0) as viewBox will handle positioning.
         this.layout = new Layout(Layout.flat, this.hexSize, new Point(0, 0));
-        this.gameMap = new GameMap(this.eventBus, this.layout);
+        this.gameMap = new GameMap(this.eventBus, this.layout, this.rng); // Pass the seeded RNG to the map
         this.renderer = new SVGRenderer(this.eventBus, this, this.canvasId);
         this.entityFactory = new EntityFactory(this);
 
@@ -217,7 +230,6 @@ export default class Game {
             
             entity.initComponents();
         }
-        
     }
 
     /**
@@ -359,7 +371,7 @@ export default class Game {
             const { path, targetTile: moveTargetHex, pathLength } = this._findPathToAdjacent(actor, target.hex, effectiveMovementRange);
 
             if (path && moveTargetHex && pathLength <= effectiveMovementRange) {
-                const totalCost = (CONFIG.actions.moveCost * pathLength) + CONFIG.actions.attackCost;
+                const totalCost = (this.CONFIG.actions.moveCost * pathLength) + this.CONFIG.actions.attackCost;
                 if (stats.canAfford(totalCost)) {
                     const moveSuccessful = await this.resolveMoveAction(actor, { targetTile: moveTargetHex });
                     if (moveSuccessful && actor.hex.distance(target.hex) <= attackRange) {
@@ -514,7 +526,7 @@ export default class Game {
         const target = this.getEntity(details.targetId);
         if (!target || !target.getComponent('stats')?.isAlive()) return false;
 
-        if (actor.type === 'player' && !stats.canAfford(CONFIG.actions.attackCost)) {
+        if (actor.type === 'player' && !stats.canAfford(this.CONFIG.actions.attackCost)) {
             this.eventBus.publish('combatLog', { message: "Not enough AP to attack!", type: "warning" });
             return false;
         }
@@ -523,7 +535,7 @@ export default class Game {
             return false;
         }
 
-        if (actor.type === 'player') stats.spendActionPoints(CONFIG.actions.attackCost);
+        if (actor.type === 'player') stats.spendActionPoints(this.CONFIG.actions.attackCost);
         const damage = stats.attackPower || 5;
         target.getComponent('stats').takeDamage(damage);
         this.eventBus.publish('combatLog', { message: `${actor.name} attacks ${target.name} for ${damage} damage!`, type: "info" });
@@ -545,7 +557,7 @@ export default class Game {
             return false;
         }
 
-        const moveCost = CONFIG.actions.moveCost * (path.length - 1);
+        const moveCost = this.CONFIG.actions.moveCost * (path.length - 1);
         if (actor.type === 'player' && !stats.canAfford(moveCost)) {
             this.eventBus.publish('combatLog', { message: "Not enough AP to move!", type: "warning" });
             return false;
@@ -674,7 +686,11 @@ export default class Game {
     handleGameOver(message) {
         if (this.gameState.isGameOver) return;
         this.gameState.setGameOver(true);
-        this.eventBus.publish('gameOver', { message });
+        this.eventBus.publish('gameOver', {
+            message: message,
+            score: this.player?.getComponent('stats')?.xp || 0,
+            characterData: this.characterData
+        });
     }
 
     endPlayerTurn() {
@@ -718,4 +734,7 @@ export default class Game {
             }
         };
     }
+    start() { /* ... game loop logic ... */ }
 }
+
+export default Game;
