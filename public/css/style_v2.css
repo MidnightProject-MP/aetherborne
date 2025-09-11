@@ -1,0 +1,223 @@
+/* ==========================================================================
+   1. GLOBAL STYLES & THEMES
+   ========================================================================== */
+
+:root {
+    /* Default Theme: Ashen Tome - A dark, moody theme */
+    --bg: #1e1e1e;
+    --text: #f0e9df;
+    --accent: #a86c3f;
+    --box: #2a2a2a;
+    --border: #3f3f3f;
+    --highlight: #d19a66;
+    --muted: #383838;
+    --success: #6e9c76;
+    --danger: #c75c5c;
+    --font-main: 'Cinzel', serif;
+    --font-body: 'Roboto', sans-serif;
+}
+
+.theme-vintage {
+    --bg: #f5f0e1; --text: #3b2f2f; --accent: #a1866f; --box: #e7dfcf;
+    --border: #a1866f; --highlight: #b89c7b; --muted: #d5c8b1;
+    --success: #558c58; --danger: #a35c50;
+}
+
+html { box-sizing: border-box; }
+*, *:before, *:after { box-sizing: inherit; }
+
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--box);
+    color: var(--text);
+    font-family: var(--font-body);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+h1, h2, h3 {
+    font-family: var(--font-main);
+    margin-top: 0;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   2. SCREEN & LAYOUT CONTAINERS
+   ========================================================================== */
+
+.poc-section {
+    display: none;
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.poc-section.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Splash Screen --- */
+#splash-screen-content.active {
+    background-color: #000; /* Fallback */
+    /* UPDATED: Background image set */
+    background-image: url('/assets/splash4.png');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+
+#splash-screen-content .splash-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 0;
+}
+
+#splash-screen-content > * {
+    position: relative;
+    z-index: 1;
+}
+
+.splash-title-container {
+    text-align: center;
+    color: #fff;
+    /* Default: Stacked layout for narrow screens */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.splash-title-main {
+    line-height: 1;
+    margin: 0;
+    /* UPDATED: Responsive font size */
+    font-size: min(15vh, 12vw);
+}
+
+.splash-title-connector {
+    margin: 0.5rem 0;
+    font-family: var(--font-body);
+    font-size: min(4vh, 3vw);
+}
+
+.splash-menu { margin-top: 3rem; }
+
+.btn-new-game {
+    /* UPDATED: Responsive font size */
+    font-size: min(5vh, 4vw);
+}
+
+
+/* --- Character Creation Screen --- */
+#character-creation-poc.active {
+    max-width: 800px;
+    width: 100%;
+    margin: auto;
+    gap: 1rem;
+}
+.character-main-scroll-wrapper { flex-grow: 1; overflow-y: auto; width: 100%; padding: 1rem; }
+.character-main { display: flex; flex-direction: column; gap: 1.5rem; }
+.character-layout { display: flex; gap: 1.5rem; }
+.character-column-left, .character-column-right { flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 1.5rem; }
+.character-footer { flex-shrink: 0; text-align: center; padding-top: 1rem; }
+
+/* --- Main Game Screen --- */
+#map-flow-poc.active {
+    display: flex;
+    padding: 0;
+    max-width: none;
+}
+#game-ui-overlay { width: 300px; flex-shrink: 0; background: var(--box); border-left: 2px solid var(--border); padding: 1rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
+#map-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: var(--bg); overflow: hidden; position: relative; }
+#map { width: 100%; height: 100%; }
+
+/* ==========================================================================
+   3. UI COMPONENTS
+   ========================================================================== */
+
+.btn { padding: 0.75rem 1.5rem; border-radius: 6px; border: 2px solid var(--accent); font-weight: bold; font-family: var(--font-main); cursor: pointer; transition: background-color 0.2s, color 0.2s, transform 0.1s; text-transform: uppercase; }
+.btn-primary { background-color: var(--accent); color: var(--bg); }
+.btn-primary:hover:not(:disabled) { background-color: var(--highlight); color: var(--text); transform: translateY(-2px); }
+.btn:disabled { background-color: var(--muted); border-color: var(--border); color: var(--text); opacity: 0.6; cursor: not-allowed; }
+
+.card { background-color: var(--box); border: 1px solid var(--border); padding: 1rem; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+/* Archetype Selection */
+.archetype-selection-container { text-align: center; }
+.archetype-button { display: inline-block; padding: 1rem 2rem; margin: 0.5rem; border: 2px solid var(--border); cursor: pointer; transition: all 0.2s ease; }
+.archetype-button.selected { background-color: var(--accent); color: var(--bg); border-color: var(--highlight); transform: scale(1.05); }
+.archetype-description-text { margin-top: 1.5rem; min-height: 2.5em; font-style: italic; }
+
+/* Stats Display */
+.core-stats .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--muted); }
+.stat-label { font-weight: bold; }
+#characterNameInput { width: 100%; padding: 0.5rem; margin-top: 1rem; background: var(--muted); border: 1px solid var(--border); color: var(--text); border-radius: 4px; }
+
+/* Trait List */
+.trait-list { min-height: 100px; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); padding: 0.5rem; margin-top: 0.5rem; }
+.trait-entry { padding: 0.5rem; cursor: pointer; border-bottom: 1px solid var(--muted); }
+.trait-entry:hover, .trait-entry.selected { background: var(--muted); }
+.trait-list-placeholder { color: var(--text); opacity: 0.7; text-align: center; padding: 1rem; }
+#pocTraitDetailCard { margin-top: 1rem; }
+
+/* Player HUD Stat Bars */
+.stat-container { margin-bottom: 1rem; }
+.stat-container2 { position: relative; width: 100%; max-width: 480px; min-width: 300px; margin: 1.5rem auto; font-size: 1rem; }
+.stat-layout2 { display: flex; align-items: center; justify-content: flex-start; position: relative; }
+.stat-circle2 { position: relative; z-index: 2; width: 5em; height: 5em; aspect-ratio: 1 / 1; border-radius: 50%; background-color: #cc9108; border: 3px solid var(--border); box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); display: flex; justify-content: center; align-items: center; font-family: var(--font-main); font-size: 1.5em; color: #2b1d0e; }
+.ap-value2 { font-weight: bold; text-align: center; }
+.bar-stack2 { display: flex; flex-direction: column; margin-left: -2.5em; z-index: 1; }
+.stat-bar2 { height: 2em; display: flex; justify-content: center; align-items: center; border-radius: 0.75em; font-family: var(--font-main); font-size: 1.1em; color: white; background-color: gray; border: 3px solid var(--border); }
+.stat-bar2.hp { background-color: #b96e6e; width: 7em; transform: translate(0%, 2px); }
+.stat-bar2.mp { background-color: #6f95c3; width: 8.5em; }
+.stat-bar2 .value2 { font-weight: bold; text-align: center; color: white; margin-left: 1.8em; }
+
+/* Skill Bar */
+#skill-bar-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 100; }
+#skill-bar { display: flex; gap: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.5); border-radius: 8px; }
+.skill-button { font-size: 0.8rem; padding: 0.5rem; }
+
+/* Combat Log */
+#combat-log { max-height: 100px; overflow-y: auto; font-size: 0.9em; background: var(--muted); padding: 0.5rem; border-radius: 4px; }
+#combat-log-header { cursor: pointer; font-weight: bold; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+
+/* ==========================================================================
+   5. MEDIA QUERIES
+   ========================================================================== */
+
+/* UPDATED: Media query for splash screen title layout on wider screens */
+@media (min-aspect-ratio: 4/3) {
+    .splash-title-container {
+        flex-direction: row;
+        gap: 1rem;
+        align-items: baseline;
+    }
+    .splash-title-connector {
+        font-size: min(3vh, 2vw);
+    }
+}
+
+@media (max-width: 768px) {
+    .character-layout { flex-direction: column; }
+    #game-ui-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: auto;
+        max-height: 40vh;
+        border-left: none;
+        border-top: 2px solid var(--border);
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+    }
+}

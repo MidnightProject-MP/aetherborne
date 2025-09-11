@@ -1,0 +1,245 @@
+/**
+ * Manages all UI overlays, such as modals, tooltips, and choice prompts.
+ * This class listens to events on the global event bus and displays the
+ * appropriate UI, decoupling the overlay logic from game systems.
+ * @class OverlayManager
+ */
+class OverlayManager {
+    /**
+     * @param {object} eventBus - The global event bus instance.
+     * @param {string} [parentElementSelector=null] - Optional selector for the parent element. Defaults to document.body.
+     */
+    constructor(eventBus, parentElementSelector = null) {
+        if (!eventBus) {
+            throw new Error("OverlayManager requires an EventBus instance.");
+        }
+
+        /** @private */
+        this.eventBus = eventBus;
+        /** @private */
+        this.overlayContainer = null;
+        /** @private */
+        this.activeOverlays = [];
+
+        this._createContainer(parentElementSelector);
+        this._injectStyles();
+        this._setupEventListeners();
+    }
+
+    /**
+     * Creates the main container for all overlays and appends it to the DOM.
+     * @param {string|null} parentElementSelector
+     * @private
+     */
+    _createContainer(parentElementSelector) {
+        this.overlayContainer = document.createElement('div');
+        this.overlayContainer.id = 'overlay-container';
+
+        let parent = document.querySelector(parentElementSelector) || document.body;
+        parent.appendChild(this.overlayContainer);
+    }
+
+    /**
+     * Subscribes the manager to all relevant global events.
+     * @private
+     */
+    _setupEventListeners() {
+        this.eventBus.subscribe('gameOver', (payload) => this._showGameOverModal(payload));
+        this.eventBus.subscribe('portalChoicesRequested', (payload) => this._showChoicesModal(payload));
+        // Add more listeners here as needed, e.g., for lore popups, settings menus, etc.
+    }
+
+    /**
+     * Shows a modal with choices for the player.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.title - The title of the choice prompt.
+     * @param {Array<object>} payload.choices - The choices to present.
+     * @private
+     */
+    _showChoicesModal({ title, choices }) {
+        this.hideAll();
+
+        const overlay = this._createBaseOverlay('modal');
+        
+        const titleElem = document.createElement('h2');
+        titleElem.textContent = title;
+        overlay.appendChild(titleElem);
+
+        const choiceContainer = document.createElement('div');
+        choiceContainer.className = 'choice-container';
+
+        choices.forEach(choice => {
+            const button = document.createElement('button');
+            button.className = 'choice-button';
+            button.textContent = choice.name;
+            button.title = choice.description;
+            button.addEventListener('click', () => {
+                choice.effect();
+                this.hide(overlay);
+            });
+            choiceContainer.appendChild(button);
+        });
+        
+        overlay.appendChild(choiceContainer);
+        this._show(overlay);
+    }
+
+    /**
+     * Shows the game over modal with a high score input.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.message - The game over message.
+     * @private
+     */
+    _showGameOverModal({ message }) {
+        this.hideAll();
+        
+        const overlay = this._createBaseOverlay('modal');
+        
+        const messageElem = document.createElement('p');
+        messageElem.innerHTML = message;
+        overlay.appendChild(messageElem);
+        
+        const input = document.createElement('input');
+        input.id = 'player-name-input';
+        input.type = 'text';
+        input.placeholder = 'Enter your name';
+        overlay.appendChild(input);
+        
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'overlay-buttons';
+        
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Submit Score';
+        submitButton.addEventListener('click', () => {
+            const playerName = input.value || "Anonymous";
+            this.eventBus.publish('submitHighScore', { name: playerName });
+            this.hide(overlay);
+        });
+        
+        buttonContainer.appendChild(submitButton);
+        overlay.appendChild(buttonContainer);
+        
+        this._show(overlay);
+    }
+
+    /**
+     * Creates a base overlay element with a backdrop.
+     * @param {'modal'|'tooltip'} type - The type of overlay.
+     * @returns {HTMLElement} The created overlay element.
+     * @private
+     */
+    _createBaseOverlay(type) {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'overlay-backdrop';
+
+        const overlay = document.createElement('div');
+        overlay.className = `overlay-content ${type}`;
+        
+        backdrop.appendChild(overlay);
+        return backdrop;
+    }
+
+    /**
+     * Appends a prepared overlay to the container, making it visible.
+     * @param {HTMLElement} overlayElement - The overlay element with its backdrop.
+     * @private
+     */
+    _show(overlayElement) {
+        this.overlayContainer.appendChild(overlayElement);
+        this.activeOverlays.push(overlayElement);
+    }
+
+    /**
+     * Hides and removes a specific overlay from the DOM.
+     * @param {HTMLElement} overlay - The overlay element to hide.
+     */
+    hide(overlay) {
+        if (!overlay || !this.overlayContainer.contains(overlay)) return;
+        this.overlayContainer.removeChild(overlay);
+        this.activeOverlays = this.activeOverlays.filter(o => o !== overlay);
+    }
+
+    /**
+     * Hides and removes all currently active overlays.
+     */
+    hideAll() {
+        this.activeOverlays.forEach(overlay => this.overlayContainer.removeChild(overlay));
+        this.activeOverlays = [];
+    }
+
+    /**
+     * Injects the necessary CSS for the overlays into the document's head.
+     * @private
+     */
+    _injectStyles() {
+        const styleId = 'overlay-manager-styles';
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+            #overlay-container {
+                position: absolute;
+                top: 0; left: 0; width: 100%; height: 100%;
+                pointer-events: none; /* Allow clicks to pass through by default */
+                z-index: 1000;
+            }
+            .overlay-backdrop {
+                position: fixed; /* Use fixed to cover the whole viewport */
+                top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                pointer-events: auto; /* Capture clicks */
+            }
+            .overlay-content {
+                background-color: #fff;
+                color: #333;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                max-width: 500px;
+                width: 90%;
+                text-align: center;
+            }
+            .overlay-content h2 {
+                margin-top: 0;
+                margin-bottom: 1rem;
+                font-size: 1.5rem;
+            }
+            .overlay-content p {
+                margin-bottom: 1.5rem;
+            }
+            .overlay-content input {
+                width: 100%;
+                padding: 0.5rem;
+                margin-bottom: 1rem;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+            }
+            .overlay-buttons, .choice-container {
+                display: flex;
+                justify-content: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            .overlay-buttons button, .choice-container button {
+                padding: 0.75rem 1.5rem;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                background-color: #4a4a4a;
+                color: white;
+                font-weight: bold;
+                transition: background-color 0.2s;
+            }
+            .overlay-buttons button:hover, .choice-container button:hover {
+                background-color: #6a6a6a;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+export default OverlayManager;

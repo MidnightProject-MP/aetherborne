@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExploreCraft - Prologue POC</title>
+    <link rel="stylesheet" href="/css/style_v2.css">
+</head>
+<body class="theme-vintage"> <!-- Default theme; see notes below -->
+    <!-- Splash Screen Section with Aspect Ratio Box -->
+    <div class="ratio-box home-screen"> <!-- Added ratio-box and moved home-screen class here -->
+        <div id="splash-screen-poc" class="poc-section screen-box active"> <!-- home-screen class removed from here -->
+            <div class="splash-overlay"></div>
+            <div class="lore-intro card">
+              <h2>The Ashfall</h2>
+              <p>The world you knew is but a memory, fractured by the Great Calamity. Civilizations crumbled, turning to dust and whispers. Now, only embers of the old world remain, scattered across blighted landscapes where survival is a daily struggle, and forgotten magics stir in the shadows.<br><br>They call this era the Ashfall.<br><br>Few dare to venture beyond the makeshift settlements. Yet, within these ashes lie not only peril but also the seeds of new beginnings, echoes of lost knowledge, and the chance to forge a legacy in a world desperate for heroes... or cautionary tales.<br><br>Your journey starts now. What will your story be?</p>
+            </div>
+            <div class="splash-content">
+              <div class="menu-buttons">
+                <button class="btn btn-primary">New Game</button> <!-- onclick removed -->
+                <button class="btn btn-muted" disabled>Continue (Disabled)</button>
+                <button class="btn btn-settings" disabled>Options (Disabled)</button>
+              </div>
+            </div>
+          </div>
+    </div>
+
+    <!-- Character Creation Section -->
+    <div id="character-creation-poc" class="poc-section screen-box character-screen">
+        <!-- CHARACTER HEADER -->
+        <div class="character-screen-header">
+            <h2 class="character-screen-title">Choose Your Path</h2>
+        </div>
+
+
+        <!-- CHARACTER MAIN -->
+        <div class="character-main-scroll-wrapper">
+          <div class="character-main">
+            <div class="archetype-stats-display">
+                <!-- STAT CONTAINER (HP/AP/MP) - Assuming .stat-container styles come from style_v2.css -->
+                <div class="stat-container character-stat-container">
+                    <div class="bar-belt">
+                        <div class="stat-bar hp" id="pocHpBar"><span class="value" id="pocHpValue">-- / --</span></div>
+                        <div class="stat-bar mp" id="pocMpBar"><span class="value" id="pocMpValue">-- / --</span></div>
+                    </div>
+                    <div class="stat-circle" id="pocApCircle"><span class="ap-value" id="pocApValue">--</span></div>
+                </div>
+
+                <!-- CORE STATS & TRAITS -->
+                <div class="character-layout">
+                    <!-- LEFT COLUMN - CORE STATS -->
+                    <div class="character-column-left core-attributes-display">
+                        <div class="card">
+                            <h3>Core Attributes</h3>
+                            <p>Total Points to spend: <span id="totalStatPointsDisplay">10</span></p>
+                            <p>Points Left: <span id="statPointsLeft">10</span></p>
+                            <div class="core-stats">
+                                <div class="stat-row interactive">
+                                    <span class="stat-label">Body:</span>
+                                    <button id="decrease-body" class="btn-adjust">-</button>
+                                    <span class="stat-value" id="bodyValue">10</span>
+                                    <button id="increase-body" class="btn-adjust">+</button>
+                                </div>
+                                <div class="stat-row interactive">
+                                    <span class="stat-label">Mind:</span>
+                                    <button id="decrease-mind" class="btn-adjust">-</button>
+                                    <span class="stat-value" id="mindValue">10</span>
+                                    <button id="increase-mind" class="btn-adjust">+</button>
+                                </div>
+                                <div class="stat-row interactive">
+                                    <span class="stat-label">Instinct:</span>
+                                    <button id="decrease-instinct" class="btn-adjust">-</button>
+                                    <span class="stat-value" id="instinctValue">10</span>
+                                    <button id="increase-instinct" class="btn-adjust">+</button>
+                                </div>
+                            </div>
+                            <button id="resetCharacterStatsButton" class="btn btn-muted btn-small">Reset Stats</button>
+                            <div class="character-name-input-container">
+                                <label for="characterNameInput">Character Name:</label>
+                                <input type="text" id="characterNameInput" value="Adventurer">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- RIGHT COLUMN - TRAITS -->
+                    <div class="character-column-right">
+                        <div class="card card-traits">
+                            <div class="trait-header"><h3>Traits (<span id="traitPoints">3</span> left)</h3></div>
+                            <div class="trait-list" id="pocTraitList">
+                                <p class="trait-list-placeholder">Select an archetype to see traits.</p>
+                            </div>
+                        </div>
+                        <div class="card" id="pocTraitDetailCard" style="display:none;">
+                            <h3 id="pocTraitDetailTitle">Trait Details</h3>
+                            <div id="pocTraitDetailContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="archetype-selection-container">
+              <div class="archetype-button" id="archetype-warrior"> <!-- onclick removed -->
+                Warrior
+              </div>
+              <div class="archetype-bottom-row">
+                <div class="archetype-button" id="archetype-rogue"> <!-- onclick removed -->
+                  Rogue
+                </div>
+                <div class="archetype-button" id="archetype-magician"> <!-- onclick removed -->
+                  Magician
+                </div>
+              </div>
+              <p id="archetype-description" class="archetype-description-text">Select your Archetype.</p>
+            </div>
+          </div>
+        </div>        
+        <!-- CHARACTER FOOTER -->
+        <div class="character-footer">
+          <!-- <button class="btn btn-muted" onclick="resetArchetypeSelectionPoc()">Reset</button> --> <!-- Reset button can be added later if needed -->
+          <button id="confirmCharacterButton" class="btn btn-primary">Confirm</button>
+        </div>
+    </div>
+
+    <!-- Map Flow Section (Original POC Content) -->
+    <div id="map-flow-poc" class="poc-section screen-box game-screen-container">
+        <div id="game-container">
+            <div id="player-stats-hud">
+                <div class="stat-container">
+                <div class="bar-belt">
+                    <div class="stat-bar hp">
+                    <span class="value">--/--</span>
+                    </div>
+                    <div class="stat-bar mp">
+                    <span class="value">--/--</span>
+                    </div>
+                </div>
+                <div class="stat-circle">
+                    <span class="ap-value">--/--</span>
+                </div>
+                </div>
+            </div> <!-- This is the HUD for the game map -->
+            <svg id="map" viewBox="0 0 408 541"></svg>
+        </div>
+
+        <!-- New Combat Log Icon Button -->
+        <button id="combat-log-icon-btn" title="Open Combat Log">📝</button>
+
+        <!-- New Fullscreen Combat Log Structure (initially hidden) -->
+        <div id="combat-log-overlay" style="display: none;">
+            <div id="combat-log-container">
+                <div id="combat-log-header">
+                    <h2>Combat Log</h2>
+                    <button id="close-combat-log-btn" title="Close Log">&times;</button>
+                </div>
+                <div id="combat-log-content">
+                    <!-- Combat log messages will be appended here by main.js -->
+                </div>
+            </div>
+        </div>
+
+        <div id="skill-bar" class="skill-bar"></div>
+        <!-- main.js is loaded when this section becomes active, see script below -->
+    </div>
+    <script type="module" src="/js/main.js"></script>
+</body>
+</html>

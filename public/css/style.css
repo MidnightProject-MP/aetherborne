@@ -1,0 +1,507 @@
+/* ==========================================================================
+   1. GLOBAL STYLES & THEMES
+   ========================================================================== */
+:root {
+    /* Core Palette */
+    --bg: #f5f0e1;
+    --text: #3b2f2f;
+    --accent: #a1866f;
+    --box: #e7dfcf;
+    --border: #a1866f;
+    --highlight: #b89c7b;
+    --muted: #d5c8b1;
+    --success: #558c58;
+    --danger: #a35c50;
+
+    /* Specific Component Colors */
+    --hp-color: #b96e6e;
+    --mp-color: #6f95c3;
+    --stat-circle-bg: #cc9108; /* Color for AP circle background */
+    --stat-circle-text: #2b1d0e; /* Color for AP circle text */
+
+    /* Map-specific colors */
+    --hex-fill-color: olivedrab; /* A muted olive green for a vintage map feel */
+
+    /* Border Radii */
+    --border-radius-sm: 4px;
+    --border-radius-md: 6px;
+    --border-radius-base: 8px; /* Used for skill bar, archetype buttons */
+    --border-radius-lg: 12px; /* Used for cards */
+    --border-radius-xl: 1rem; /* Used for character creation main container */
+
+    /* Functional Variables (derived from palette where possible) */
+    --button-bg: var(--accent);
+    --button-hover-bg: #A0522D; /* This is a distinct color, so it's fine as a literal value */
+    --button-text: white;
+    --button-border-color: #D2B48C;
+    --button-border-radius: var(--border-radius-base); /* Default button border radius */
+
+    /* Textures (if used globally) */
+    --texture-image: url('/assets/parchment.png'); /* Example texture */
+    --texture-blend-mode: overlay;
+    --texture-size: cover;
+
+    /* Typography */
+    --font-family: 'Cinzel', serif; /* Default font */
+
+    /* Splash Screen Specific */
+    --splash-bg-image: url('/assets/splash4.png');
+    --splash-bg-size: cover;
+    --splash-bg-position: center;
+    --splash-bg-repeat: no-repeat;
+    --splash-title-color: #e7dbb8; /* Color for splash screen titles */
+    --splash-title-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7); /* Shadow for splash screen titles */
+    --splash-bg-fallback-color: black;
+}
+
+/* All other themes */
+.theme-parchment { --bg: #f3e5c0; --text: #2c1a0d; --accent: #7a5c3d; --box: #f8f1db; --border: #c2a166; --highlight: #cfa95d; --muted: #e7dbb8; --success: #497a3d; --danger: #a13c2f; }
+.theme-storybook { --bg: #edd7a2; --text: #2b1c09; --accent: #7b4c24; --box: #f3e1b6; --border: #a26435; --highlight: #ac7b38; --muted: #e8c68c; --success: #4e6426; --danger: #8e2d24; }
+.theme-darkstone { --bg: #121212; --text: #f1e9ce; --accent: #7a5c3d; --box: #1e1e1e; --border: #444; --highlight: #bfa25c; --muted: #2a2a2a; --success: #4e744e; --danger: #992f2f; }
+.theme-steampunk { --bg: #2c1d0f; --text: #e0c097; --accent: #a67c52; --box: #3d2b1f; --border: #a67c52; --highlight: #cc995e; --muted: #57402b; --success: #4d764d; --danger: #8c3d2e; }
+.theme-feywood { --bg: #eaf6ea; --text: #2e3f2e; --accent: #6d9f71; --box: #d5ecd4; --border: #4e7f56; --highlight: #9ed99b; --muted: #e0f0e0; --success: #5fa95f; --danger: #a34c4c; }
+.theme-ashen-tome { --bg: #1e1e1e; --text: #f0e9df; --accent: #a86c3f; --box: #2a2a2a; --border: #3f3f3f; --highlight: #d19a66; --muted: #383838; --success: #6e9c76; --danger: #c75c5c; }
+.theme-high-paladin { --bg: #f9f7f3; --text: #2b2d42; --accent: #bfa046; --box: #f0ece2; --border: #cbbd7a; --highlight: #d4c27a; --muted: #eae4d1; --success: #688b58; --danger: #aa4e4e; }
+.theme-festival-gold { --bg: #fff5dc; --text: #5e3b1e; --accent: #e37222; --box: #fff0c1; --border: #e0a458; --highlight: #ffcc66; --muted: #ffeac2; --success: #9cba44; --danger: #d84830; }
+.theme-frozen-keep { --bg: #e8f4f9; --text: #1c2a33; --accent: #67a7cc; --box: #d0e6f1; --border: #8cbdd9; --highlight: #b3ddec; --muted: #e0f2fa; --success: #5aa8a8; --danger: #b94e5a; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    
+    background-image: var(--splash-bg-image);
+    background-size: var(--splash-bg-size);
+    background-position: var(--splash-bg-position);
+    background-repeat: var(--splash-bg-repeat);
+    background-color: var(--splash-bg-fallback-color);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-family);
+    color: var(--text);
+    transition: background-color 0.3s, color 0.3s;
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+input, textarea {
+    -webkit-user-select: text; /* Allow text selection in inputs */
+    user-select: text;
+}
+
+/* ==========================================================================
+   2. SCREEN & LAYOUTS
+   ========================================================================== */
+
+.poc-section {
+    display: none;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.poc-section.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Splash Screen --- */
+#splash-screen-content {
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+    padding: 2rem;
+}
+
+.splash-title-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.splash-title-main {
+    font-size: min(15svh, 25svw);
+    font-weight: bold;
+    color: var(--splash-title-color);
+    text-shadow: var(--splash-title-shadow);
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.splash-title-connector {
+    font-size: min(5svh, 8svw);
+    font-weight: normal;
+    color: var(--splash-title-color);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Slightly smaller shadow */
+    line-height: 1;
+    margin: -0.2em 0;
+    text-transform: uppercase;
+}
+
+.splash-menu button.btn-new-game {
+    font-size: min(3.5svh, 8svw);
+    padding: 0.9em 2em;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: 2px solid var(--button-border-color);
+    border-radius: var(--button-border-radius);
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.splash-menu button.btn-new-game:hover {
+    background-color: var(--button-hover-bg);
+    transform: translateY(-2px);
+}
+
+/* --- Character Creation Screen --- */
+#character-creation-poc {
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.character-creation-content {
+    width: min(95vw, 95vh * (700/800)); /* Scales with viewport, maintains aspect ratio */
+    height: min(95vh, 95vw / (700/800)); /* Scales with viewport, maintains aspect ratio */
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius-xl);
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    padding: clamp(1rem, 4vh, 2rem); /* Responsive padding */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent scrolling */
+    gap: clamp(0.5rem, 2vh, 1.5rem); /* Adjusted for better spacing */
+}
+
+/* New: Archetype Selection Buttons */
+.archetype-selection-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.class-btn {
+    background-color: transparent;
+    color: var(--accent);
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius-base);
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1.2rem; /* Adjust as needed */
+}
+
+.class-btn:hover {
+    background-color: rgba(194, 161, 102, 0.2); /* A faint border color wash */
+    color: var(--text);
+}
+
+.class-btn.active {
+    background-color: var(--accent);
+    color: var(--bg); /* Text color changes to match background for contrast */
+    border-color: var(--text);
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px rgba(44, 26, 13, 0.2);
+}
+
+/* New: Character Image Display */
+.character-display-main {
+    flex-grow: 1; /* Allows image area to take up available space */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0; /* Crucial for flex-grow to work correctly */
+}
+
+#character-display {
+    width: 100%;
+    max-width: 400px; /* Limit image size */
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.character-image-style {
+    max-height: 100%;
+    max-width: 100%;
+    filter: sepia(0.5) saturate(1.4) brightness(1.05) drop-shadow(5px 5px 10px rgba(0,0,0,0.3)); /* Blends with vintage theme */
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.character-footer {
+    flex-shrink: 0;
+    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* --- Main Game Screen --- */
+#map-flow-poc.active {
+    padding: 0;
+}
+
+#map-container {
+    /* Styles for the map container itself (content alignment, background) */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--box);
+    position: relative;
+    overflow: hidden;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+#hud-top, #hud-bottom {
+    /* Base styles for both HUD panels */
+    background-color: var(--box);
+    padding: 1rem;
+}
+
+#hud-bottom {
+    /* Styles for the content within the bottom HUD */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* ==========================================================================
+   3. UI COMPONENT STYLES
+   ========================================================================== */
+.card {
+    background-color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    border-radius: var(--border-radius-lg);
+}
+
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--border-radius-md);
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.btn:disabled {
+    background-color: var(--muted);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* HUD Specific Styles */
+.stat-container2 {
+    position: relative;
+    width: 100%;
+    width: clamp(30vw, 40vh, 50vw); /* Scales fluidly with viewport, avoids fixed px max */
+    margin: 0 auto; /* Center horizontally, remove vertical margin */
+    font-size: 1rem;
+    flex-shrink: 0; /* Prevent this container from shrinking */
+}
+
+.stat-layout2 {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+}
+
+.stat-circle2 {
+    position: relative;
+    z-index: 2;
+    width: 5em;
+    height: 5em;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background-color: var(--stat-circle-bg);
+    border: 3px solid var(--border);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--font-family);
+    font-size: 1.5em;
+    color: var(--stat-circle-text);
+}
+
+.ap-value2 {
+    font-weight: bold;
+    text-align: center;
+}
+
+.bar-stack2 {
+    display: flex;
+    flex-direction: column;
+    margin-left: -2.5em;
+    z-index: 1;
+}
+
+.stat-bar2 {
+    height: 2em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.75em;
+    font-family: var(--font-family);
+    font-size: 1.1em;
+    color: white;
+    background-color: gray;
+    border: 3px solid var(--border);
+}
+
+.stat-bar2.hp {
+    background-color: var(--hp-color);
+    width: 7em;
+    transform: translate(0%, 2px);
+}
+
+.stat-bar2.mp {
+    background-color: var(--mp-color);
+    width: 8.5em;
+}
+.stat-bar2 .value2 {
+    font-weight: bold;
+    text-align: center;
+    color: white;
+    margin-left: 1.8em;
+}
+
+/* --- Map Overlay Previews --- */
+.preview-tile {
+    /* Base style for all preview tiles */
+    stroke: rgba(255, 255, 255, 0.9); /* More visible white stroke */
+    stroke-width: 2; /* Thicker stroke for better visibility */
+    pointer-events: none; /* Clicks should pass through the overlay */
+    transition: fill 0.1s ease-out; /* Smooth transition for hover effects if any */
+}
+
+/* 0. Skill Range (White) */
+.skill-range-preview {
+    fill: rgba(255, 255, 255, 0.2); /* White with transparency */
+    stroke: rgba(255, 255, 255, 0.8); /* More visible white stroke */
+}
+
+/* 1. Full range of possibilities (Light Blue) */
+.range-preview {
+    fill: rgba(173, 216, 230, 0.6); /* Increased opacity for better visibility */
+}
+
+/* 2. Path to target (Blue) */
+.path-preview {
+    fill: rgba(0, 0, 255, 0.7); /* Increased opacity for better visibility */
+    stroke: #add8e6; /* Light blue stroke */
+    stroke-width: 2; /* Thicker stroke */
+}
+
+/* 3. Skill Target (Blue Border) */
+.skill-target-preview {
+    fill: rgba(0, 0, 255, 0.1); /* Very light blue fill */
+    stroke: rgba(0, 0, 255, 0.8); /* Strong blue border */
+    stroke-width: 3; /* Thicker border */
+}
+
+/* 3. AOE or single target (Red) */
+.effect-preview {
+    fill: rgba(255, 0, 0, 0.7); /* Increased opacity for better visibility */
+    stroke: #ff4500; /* Orange-red stroke */
+}
+
+/* --- Map Tile Styles --- */
+.map-tile {
+    fill: var(--hex-fill-color);
+    stroke: #222; /* A very dark grey for tile borders */
+    stroke-width: 1;
+}
+
+.map-tile.obstacle {
+    fill: #6c6c6c; /* A neutral grey for obstacles */
+}
+
+/* Fog of War styles */
+.fow-cover {
+    pointer-events: none; /* Clicks pass through to the map tile below */
+    transition: fill 0.5s ease-in-out, opacity 0.5s ease-in-out;
+}
+.fow-cover.fow-hidden {
+    fill: #1a1a1a; /* Almost black for unexplored areas */
+}
+.fow-cover.fow-partial {
+    fill: rgba(26, 26, 26, 0.6); /* Semi-transparent dark for previously explored areas */
+}
+.fow-cover.fow-full {
+    fill: transparent; /* Fully transparent to reveal the tile below */
+}
+
+/* ==========================================================================
+   4. RESPONSIVE MEDIA QUERIES
+   ========================================================================== */
+
+/* --- Main Game Layout --- */
+
+/* Default Narrow Layout (Flexbox Column) - This is the base for mobile. */
+#map-container {
+    flex-grow: 1; /* Allows map to fill the available vertical space */
+    min-height: 0; /* Fix for flexbox column layout */
+}
+
+#hud-top {
+    flex-shrink: 0; /* Prevent HUD from shrinking */
+    border-bottom: none;
+}
+
+#hud-bottom {
+    flex-shrink: 0; /* Prevent HUD from shrinking */
+    border-top: none;
+}
+
+/* Wide Screen Layout (Grid). This overrides the narrow layout on wider screens. */
+@media (min-aspect-ratio: 3/4) { /* Switch based on aspect ratio */
+    #map-flow-poc.active {
+        display: grid;
+        grid-template-columns: 1fr min(30vw, 40vh); /* Responsive HUD column width */
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "map hud-top"
+            "map hud-bottom";
+    }
+
+    #map-container {
+        /* flex-grow and min-height from narrow view have no effect in grid, which is fine */
+        grid-area: map;
+    }
+    #hud-top {
+        grid-area: hud-top;
+        border-left: none;
+        border-bottom: none; /* Override the border from the narrow layout */
+    }
+    #hud-bottom {
+        grid-area: hud-bottom;
+        border-left: none;
+        justify-content: space-between; /* Pushes skill bar up and end turn button down */
+    }
+}
