@@ -26,7 +26,9 @@ export async function getHighScores() {
 export async function submitScore(playerName, score) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Using text/plain can often bypass complex CORS preflight checks.
+        // The Apps Script backend can still parse the JSON string from the body.
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'submitScore',
             payload: { name: playerName, score: score }
@@ -47,7 +49,7 @@ export async function submitScore(playerName, score) {
 export async function startNewGame(mapId, characterData) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'newGame',
             payload: { mapId, characterData }
@@ -71,7 +73,7 @@ export async function startNewGame(mapId, characterData) {
 export async function submitReplay(sessionId, replayLog, finalStateClient, playerName) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'submitReplay',
             payload: { sessionId, replayLog, finalStateClient, playerName }
