@@ -157,20 +157,28 @@ export class Orchestrator {
         await this.waitForDOM();
         console.log("[Orchestrator] DOM is ready.");
 
+        // 2. Initialize GameStateManager first and show the splash screen immediately.
+        this.gameStateManager = await this.initializeGameStateManager();
+        console.log("[Orchestrator] GameStateManager initialized.");
+        await this.transitionToSplash();
+        console.log("[Orchestrator] Transitioned to splash screen.");
+
         // NEW STEP: Fetch dynamic config from server and merge with static config.
         console.log("[Orchestrator] Fetching game configuration from server...");
-        const dynamicConfig = await getGameConfig();
-        this.config = { ...CONFIG, ...dynamicConfig };
-        console.log("[Orchestrator] Game configuration loaded.");
+        try {
+            const dynamicConfig = await getGameConfig();
+            this.config = { ...CONFIG, ...dynamicConfig };
+            console.log("[Orchestrator] Game configuration loaded.");
+        } catch (error) {
+            console.error("[Orchestrator] CRITICAL: Failed to load game configuration from server.", error);
+            // Here you could display a permanent error message on the screen.
+            return; // Stop initialization
+        }
 
         // Wire up splash screen button here
         this.wireSplashScreenStartButton();
         this.wireContinueButton();
         this.wireHighScoreButton();
-
-        // 2. Initialize GameStateManager first
-        this.gameStateManager = await this.initializeGameStateManager();
-        console.log("[Orchestrator] GameStateManager initialized.");
 
         // 3. Initialize CharacterCreator with proper error handling
         console.log("[Orchestrator] Attempting CharacterCreator initialization...");
@@ -183,11 +191,6 @@ export class Orchestrator {
         console.log("[Orchestrator] CharacterCreator successfully initialized and assigned.");
 
         // 4. Set up event handlers
-        //this.eventBus.subscribe('transitionToSplash', this.handleTransitionToSplash);
-
-        // 5. Continue with game initialization
-        await this.transitionToSplash();
-        console.log("[Orchestrator] Transitioned to splash screen.");
 
         // 6. Wait for character creation
         const characterData = await this.waitForCharacterCreation();

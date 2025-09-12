@@ -14,12 +14,15 @@ export class ReplayOrchestrator {
         this.config = null;
         this.currentTurn = 0;
         this.isPlaying = false;
-        this.playbackSpeed = 1000; // ms per turn
+        this.baseSpeed = 1000; // ms per turn at 1x speed
+        this.playbackSpeed = this.baseSpeed;
         this.playbackTimeout = null;
 
         this.playPauseBtn = document.getElementById('play-pause-btn');
+        this.stepForwardBtn = document.getElementById('step-forward-btn');
         this.turnCounter = document.getElementById('turn-counter');
         this.statusMessage = document.getElementById('status-message');
+        this.speedSelect = document.getElementById('speed-select');
 
         this.eventBus.subscribe('mapTransitionRequest', this.handleMapTransition.bind(this));
     }
@@ -91,6 +94,8 @@ export class ReplayOrchestrator {
 
     bindUIControls() {
         this.playPauseBtn.addEventListener('click', () => this.togglePlayback());
+        this.stepForwardBtn.addEventListener('click', () => this.stepForward());
+        this.speedSelect.addEventListener('change', (e) => this.changeSpeed(e.target.value));
     }
 
     togglePlayback() {
@@ -117,6 +122,7 @@ export class ReplayOrchestrator {
         if (!success) {
             this.showError(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`);
             this.togglePlayback(); // Stop playback
+            this.stepForwardBtn.disabled = true;
             return;
         }
 
@@ -124,6 +130,27 @@ export class ReplayOrchestrator {
         this.updateTurnCounter();
 
         this.playbackTimeout = setTimeout(() => this.playNextTurn(), this.playbackSpeed);
+    }
+
+    async stepForward() {
+        if (this.isPlaying) return; // Only step when paused
+        if (this.currentTurn >= this.replayData.replayLog.length) return; // At the end
+
+        const success = await this.executeTurn(this.currentTurn);
+
+        if (success) {
+            this.currentTurn++;
+            this.updateTurnCounter();
+        } else {
+            this.showError(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`);
+            this.playPauseBtn.disabled = true;
+            this.stepForwardBtn.disabled = true;
+        }
+    }
+
+    changeSpeed(multiplier) {
+        const multi = parseFloat(multiplier);
+        this.playbackSpeed = this.baseSpeed / multi;
     }
 
     async executeTurn(turnIndex) {
@@ -165,6 +192,7 @@ export class ReplayOrchestrator {
         if (!nextMapId) {
             this.showMessage('Dungeon Completed! Replay finished.');
             this.playPauseBtn.disabled = true;
+            this.stepForwardBtn.disabled = true;
             return;
         }
 

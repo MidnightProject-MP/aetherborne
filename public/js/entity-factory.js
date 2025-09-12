@@ -18,7 +18,7 @@ import DetectionComponent from './components/detectionComponent.js';
 import InteractableComponent from './components/interactableComponent.js';
 import PortalComponent from './components/portalComponent.js';
 
-import { Entity } from './entity.js';
+import Entity from './entity.js';
 
 // A map to avoid string-based lookups in the createEntity method
 const componentClasses = {
