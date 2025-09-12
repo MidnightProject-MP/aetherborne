@@ -13,7 +13,7 @@ export class Game {
     /**
      * @param {EventBus} eventBus The central event bus.
      */
-    constructor(eventBus, canvasId, hexSize, characterData, intentSystem = null, sessionData, config) {
+    constructor(eventBus, canvasId, hexSize, characterData, intentSystem = null, sessionData, config, isReplay = false) {
         this.eventBus = eventBus;
         this.canvasId = canvasId;
         this.hexSize = hexSize;
@@ -25,6 +25,7 @@ export class Game {
         this.visibilitySystem = null;
         this.interactionModel = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? 'mobile' : 'desktop';
         
+        this.isReplay = isReplay;
         // --- Server-Authoritative Data ---
         this.sessionData = sessionData;
         this.sessionId = sessionData.sessionId;
@@ -47,7 +48,7 @@ export class Game {
         this._throttledMouseMove = Game.throttle(this.handleMouseMove.bind(this), 50);
     }
 
-    async initializeLayoutAndMap(characterData) {
+    async initializeLayoutAndMap(characterData, existingPlayer = null) {
         this.characterData = characterData;
 
         // 1. Wait for mapContainer to be ready
@@ -79,7 +80,11 @@ export class Game {
         this.entityFactory = new EntityFactory(this);
 
         // 4. Create entity instances (without placing them yet)
-        this.player = this.entityFactory.createEntity('player', null, this.characterData);
+        if (existingPlayer) {
+            this.player = existingPlayer;
+        } else {
+            this.player = this.entityFactory.createEntity('player', null, this.characterData);
+        }
         const enemies = this._createEntitiesFromConfig(mapConfig, 'enemies');
         const traps = this._createEntitiesFromConfig(mapConfig, 'traps');
         const campfires = this._createEntitiesFromConfig(mapConfig, 'campfires');
@@ -127,9 +132,11 @@ export class Game {
         this.eventBus.subscribe('entityAction', (payload) => {
             this.resolveEntityAction(payload);
         });
-        this.eventBus.subscribe('mapTransitionRequest', ({ nextMapId, entityId }) => {
-            this.handleMapTransition(nextMapId, entityId);
-        });
+        if (!this.isReplay) {
+            this.eventBus.subscribe('mapTransitionRequest', ({ nextMapId, entityId }) => {
+                this.handleMapTransition(nextMapId, entityId);
+            });
+        }
         this.eventBus.subscribe('playerEndTurn', () => {
             this.endPlayerTurn();
         });
@@ -260,6 +267,14 @@ export class Game {
         const actor = this.getEntity(payload.sourceId);
         if (!actor) return false;
 
+        // Log the action if it's from the player.
+        if (actor.type === 'player') {
+            // We need a serializable version of the payload.
+            // The payload contains object references (like targetTile).
+            const serializablePayload = this._serializeActionPayload(payload);
+            this.replayLog.push(serializablePayload);
+        }
+
         this.gameState.isAnimating = true;
         let actionResolvedSuccessfully = false;
         try {
@@ -288,6 +303,22 @@ export class Game {
         }
 
         return actionResolvedSuccessfully;
+    }
+
+    /**
+     * Converts an action payload with object references to a serializable version.
+     * @private
+     */
+    _serializeActionPayload(payload) {
+        const serializable = JSON.parse(JSON.stringify(payload)); // Deep copy to be safe
+        if (payload.details.targetTile) {
+            serializable.details.targetCoords = { 
+                q: payload.details.targetTile.q, 
+                r: payload.details.targetTile.r 
+            };
+            delete serializable.details.targetTile;
+        }
+        return serializable;
     }
 
     /**
@@ -396,11 +427,20 @@ export class Game {
      * @param {string} entityId - The ID of the entity (usually player) transitioning.
      */
     async handleMapTransition(nextMapId, entityId) {
-        const entity = this.getEntity(entityId);
-        if (!entity) {
-            console.error(`[Game] Entity ${entityId} not found for map transition.`);
+        // If there's no next map, the dungeon is complete.
+        if (!nextMapId) {
+            this.handleGameOver("Dungeon Completed!");
             return;
         }
+
+        const entity = this.getEntity(entityId);
+        if (!entity || entity.type !== 'player') {
+            console.error(`[Game] Non-player entity ${entityId} tried to transition.`);
+            return;
+        }
+
+        // Preserve the player entity instance to carry over its state
+        const playerToPreserve = this.player;
 
         // 1. Clean up the state of the current map.
         this._cleanupForTransition();
@@ -409,7 +449,7 @@ export class Game {
         this.characterData.currentMapId = nextMapId;
 
         // 2. Re-initialize the game with the new map configuration.
-        await this.initializeLayoutAndMap(this.characterData);
+        await this.initializeLayoutAndMap(this.characterData, playerToPreserve);
     }
 
     /**
@@ -556,13 +596,6 @@ export class Game {
         if (!path || (path.length - 1) > maxMovement) {
             this.eventBus.publish('combatLog', { message: "Cannot move there.", type: 'warning' });
             return false;
-        }
-
-        // For replay validation, log the intended move action.
-        // NOTE: This is a simplified log for the current simple server engine.
-        // A full ECS replay would log the 'entityAction' payload.
-        if (actor.type === 'player') {
-            this.replayLog.push({ x: targetTile.col, y: targetTile.row });
         }
 
         const moveCost = this.CONFIG.actions.moveCost * (path.length - 1);

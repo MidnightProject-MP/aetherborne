@@ -38,10 +38,7 @@ export class Orchestrator {
 
     async handleGameOver(payload = {}) {
         console.log("[Orchestrator] Game Over event received:", payload.message);
-        if (payload.characterData && typeof payload.score !== 'undefined') {
-            const playerName = payload.characterData.name || "Anonymous Hero";
-            await this.highScoreManager.savePlayerScore(playerName, payload.score);
-        }
+        const playerName = payload.characterData?.name || "Anonymous Hero";
 
         // Also submit the replay for validation
         if (payload.replayData) {
@@ -49,7 +46,7 @@ export class Orchestrator {
                 console.log("[Orchestrator] Submitting replay for validation...");
                 // Get the final game state from the game instance in a format the server can verify.
                 const finalStateClient = this.gameInstance.getSerializableState();
-                const validationResult = await submitReplay(payload.replayData.sessionId, payload.replayData.replayLog, finalStateClient);
+                const validationResult = await submitReplay(payload.replayData.sessionId, payload.replayData.replayLog, finalStateClient, playerName);
                 console.log("[Orchestrator] Replay validation result:", validationResult);
             } catch (error) {
                 console.error("[Orchestrator] Failed to submit replay:", error);
@@ -199,7 +196,7 @@ export class Orchestrator {
         // 7. Request a new game session from the server BEFORE creating the game instance.
         console.log("[Orchestrator] Requesting new game session from server...");
         // We hardcode 'map_01' for now. This could come from a map selection screen.
-        const sessionData = await startNewGame(characterData.currentMapId || 'prologue_map_1');
+        const sessionData = await startNewGame(characterData.currentMapId || 'prologue_map_1', characterData);
         console.log("[Orchestrator] Session data received:", sessionData);
 
         // 8. Create Game instance directly here, now with server-authoritative session data.

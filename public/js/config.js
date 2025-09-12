@@ -1,28 +1,28 @@
-// /**
-//  * config.js
-//  * A central configuration file for the game. This file contains all static data,
-//  * game balance numbers, and blueprints for entities, skills, and archetypes.
-//  * This data-driven approach allows for easy tweaking and content creation.
-//  */
+/**
+ * config.js
+ * A central configuration file for the game. This file contains all STATIC data
+ * that is not expected to change frequently and is core to the client's operation.
+ * Dynamic data like archetypes, skills, and traits are fetched from the server.
+ */
 
-// const CONFIG = {
-//     grid: {
-//         size: { x: 11, y: 13 },
-//         hexSize: { x: 24, y: 24 },
-//     },
-//     player: { // General player defaults, archetype stats will override/add to these
-//         baseLife: 50, // Fallback if archetype doesn't specify
-//         lifePerBodyPoint: 5,
-//         baseActionPoints: 3,
-//         instinctForAPBonus: 5, // How many instinct points grant +1 AP
-//         baseManaPoints: 20, // Fallback
-//         manaPerMindPoint: 2,
-//         baseDetection: 5, // Base detection score for player
-//         baseTensionResistance: 0,
-//         focusGainBaseChance: 20,
-//         focusLossBaseChance: 20,
-//     },
-//     prologueStartMapId: "prologue_map_1",
+const CONFIG = {
+    grid: {
+        size: { x: 11, y: 13 },
+        hexSize: { x: 24, y: 24 },
+    },
+    player: { // General player defaults, archetype stats will override/add to these
+        baseLife: 50, // Fallback if archetype doesn't specify
+        lifePerBodyPoint: 5,
+        baseActionPoints: 3,
+        instinctForAPBonus: 5, // How many instinct points grant +1 AP
+        baseManaPoints: 20, // Fallback
+        manaPerMindPoint: 2,
+        baseDetection: 5, // Base detection score for player
+        baseTensionResistance: 0,
+        focusGainBaseChance: 20,
+        focusLossBaseChance: 20,
+    },
+    prologueStartMapId: "prologue_map_1",
 
 //     archetypes: {
 //         warrior: {
@@ -187,206 +187,148 @@
 //         overload: { id: "overload", name: "Overload", duration: 2, effects: [{ type: "stat_modifier", stat: "mpRegen", value: -5, modifierType: "flat" }], description: "Mana pathways are strained." }
 //     },
     
-//     tension: {
-//         levels: [
-//             { name: "Low", xpMultiplier: 1.0, color: "green" },
-//             { name: "Medium", xpMultiplier: 1.2, color: "yellow" },
-//             { name: "High", xpMultiplier: 1.5, color: "red" }
-//         ],
-//         influence: {
-//             damageTaken: 0.1,
-//             accuracyReduction: 5,
-//             critChanceReduction: 3,
-//         },
-//     },
+    tension: {
+        levels: [
+            { name: "Low", xpMultiplier: 1.0, color: "green" },
+            { name: "Medium", xpMultiplier: 1.2, color: "yellow" },
+            { name: "High", xpMultiplier: 1.5, color: "red" }
+        ],
+        influence: {
+            damageTaken: 0.1,
+            accuracyReduction: 5,
+            critChanceReduction: 3,
+        },
+    },
 
-//     combatFormulas: {
-//         base: { accuracyPhysical: 75, accuracyMagical: 70, evasion: 5, damagePhysical: 5, damageMagical: 8, defensePhysical: 2, defenseMagical: 2, critChancePhysical: 5, critChanceMagical: 5, resiliencePhysical: 5, resilienceMagical: 5, },
-//         factors: { accuracyInstinctFactor: 1.5, accuracyBodyFactor: 0.5, accuracyMindFactor: 1.5, accuracyInstinctMagicFactor: 0.75, distanceFactorPhysical: 2, distanceFactorMagical: 1, evasionInstinctFactor: 2, bodyPhysDamageFactor: 1, instinctPhysDamageFactor: 0.5, mindMagDamageFactor: 1.2, defenseBodyFactor: 1, defenseInstinctPhysFactor: 0.5, defenseMindFactor: 1, defenseInstinctMagFactor: 0.5, critInstinctFactor: 1, critMindFactor: 1, critDamageMultiplier: 1.5, resilienceBodyFactor: 1, resilienceInstinctFactor: 1, resilienceMindFactor: 1, resilienceInstinctMagFactor: 0.75, },
-//         settings: { minimumDamage: 1, maxAccuracy: 95, minAccuracy: 5, maxEvasion: 75, maxCritChance: 50, minCritChance: 0, maxResilience: 75, }
-//     },
+    combatFormulas: {
+        base: { accuracyPhysical: 75, accuracyMagical: 70, evasion: 5, damagePhysical: 5, damageMagical: 8, defensePhysical: 2, defenseMagical: 2, critChancePhysical: 5, critChanceMagical: 5, resiliencePhysical: 5, resilienceMagical: 5, },
+        factors: { accuracyInstinctFactor: 1.5, accuracyBodyFactor: 0.5, accuracyMindFactor: 1.5, accuracyInstinctMagicFactor: 0.75, distanceFactorPhysical: 2, distanceFactorMagical: 1, evasionInstinctFactor: 2, bodyPhysDamageFactor: 1, instinctPhysDamageFactor: 0.5, mindMagDamageFactor: 1.2, defenseBodyFactor: 1, defenseInstinctPhysFactor: 0.5, defenseMindFactor: 1, defenseInstinctMagFactor: 0.5, critInstinctFactor: 1, critMindFactor: 1, critDamageMultiplier: 1.5, resilienceBodyFactor: 1, resilienceInstinctFactor: 1, resilienceMindFactor: 1, resilienceInstinctMagFactor: 0.75, },
+        settings: { minimumDamage: 1, maxAccuracy: 95, minAccuracy: 5, maxEvasion: 75, maxCritChance: 50, minCritChance: 0, maxResilience: 75, }
+    },
 
-//     entityBlueprints: { // Keeping this structure
-//         player: {
-//             components: [
-//                 // StatsComponent will get its config from the selected archetype's baseStats
-//                 { name: 'stats', class: 'StatsComponent', argsSource: 'archetypeBaseStats' },
-//                 { name: 'renderable', class: 'RenderableComponent', args: { fillColor: 'blue', radius: 15 } }, // displaySize can be set in RenderableComponent
-//                 { name: 'movement', class: 'MovementComponent', argsSource: 'archetypeBaseStats' }, // To get movementRange
-//                 // SkillsComponent will get its config from the selected archetype's skill list
-//                 { name: 'skills', class: 'SkillsComponent', argsSource: 'archetypeSkills' },
-//                 { name: 'playerInput', class: 'PlayerInputComponent' },
-//                 { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 4, sightRangePartial: 6 } }, // Player visibility
-//                 // { name: 'lineOfSight', class: 'LineOfSightComponent' }, // Assuming LoS is complex and handled later
-//                 { name: 'statusEffects', class: 'StatusEffectComponent' }
-//             ],
-//             entityProperties: { // Properties directly on the Entity instance
-//                 blocksMovement: true,
-//                 zIndex: 100 // Player is always on top
-//             }
-//         },
-//             enemy: { // Example for enemies, can be expanded
-//             components: [
-//                 { name: 'stats', class: 'StatsComponent', argsSource: 'entityProperties', dataSourceKey: 'stats' }, // Enemy stats from entityDefinitions
-//                 { name: 'renderable', class: 'RenderableComponent', argsSource: 'entityProperties', dataSourceKey: 'renderable' },
-//                 { name: 'movement', class: 'MovementComponent', argsSource: 'entityProperties', dataSourceKey: 'movement' },
-//                 // { name: 'lineOfSight', class: 'LineOfSightComponent' },
-//                 { name: 'behavior', class: 'BehaviorComponent', argsSource: 'entityProperties', dataSourceKey: 'behavior' },
-//                 { name: 'intent', class: 'IntentComponent' },
-//                 { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 3, sightRangePartial: 5 } }, // Enemy visibility
-//                 // { name: 'reaction', class: 'ReactionComponent' },
-//                 { name: 'statusEffects', class: 'StatusEffectComponent' }
-//             ],
-//             entityProperties: { // Properties directly on the Entity instance
-//                 blocksMovement: true,
-//                 zIndex: 90 // Enemies slightly below player
-//             }
-//         },
-//         trap: { // Blueprint for traps
-//             components: [
-//                 { name: 'renderable', class: 'RenderableComponent', argsSource: 'entityProperties', dataSourceKey: 'renderable' },
-//                 { name: 'visibility', class: 'VisibilityComponent', argsSource: 'entityProperties', dataSourceKey: 'visibility' },
-//                 { name: 'trap', class: 'TrapComponent', argsSource: 'entityProperties', dataSourceKey: 'trapEffect' }, // trapEffect contains trigger, reusable
-//                 { name: 'detection', class: 'DetectionComponent', argsSource: 'entityProperties', dataSourceKey: 'detection' } // New: DetectionComponent for traps
-//             ],
-//             entityProperties: { // Properties directly on the Entity instance
-//                 blocksMovement: false, // Traps do not block movement
-//                 isConcealed: true,     // Traps start concealed
-//                 zIndex: 10             // Traps are visually below characters
-//             }
-//         },
-//         campfire: { // Blueprint for campfires
-//             components: [
-//                 { name: 'renderable', class: 'RenderableComponent', argsSource: 'entityProperties', dataSourceKey: 'renderable' },
-//                 { name: 'visibility', class: 'VisibilityComponent', argsSource: 'entityProperties', dataSourceKey: 'visibility' },
-//                 { name: 'interactable', class: 'InteractableComponent', argsSource: 'entityProperties', dataSourceKey: 'interactEffect' } // interactEffect contains rest, healAmount
-//             ],
-//             entityProperties: {
-//                 blocksMovement: true,  // Campfires block movement
-//                 zIndex: 20             // Campfires are visually below characters, above traps
-//             }
-//         },
-//         portal: { // Blueprint for portals
-//             components: [
-//                 { name: 'renderable', class: 'RenderableComponent', argsSource: 'entityProperties', dataSourceKey: 'renderable' },
-//                 { name: 'visibility', class: 'VisibilityComponent', argsSource: 'entityProperties', dataSourceKey: 'visibility' },
-//                 { name: 'portal', class: 'PortalComponent', argsSource: 'entityProperties' }
-//             ],
-//             entityProperties: {
-//                 blocksMovement: false, // Portals do not block movement
-//                 zIndex: 30             // Portals are visually below characters, above campfires
-//                 // isLocked: false // Future parameter for locked portals
-//             }
-//         },
-//     },
+    entityBlueprints: { // Blueprints for all entity types in the game.
+        player: {
+            components: [
+                { name: 'stats', class: 'StatsComponent', argsSource: 'archetypeBaseStats' },
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: 'blue', radius: 15 } },
+                { name: 'movement', class: 'MovementComponent', argsSource: 'archetypeBaseStats' },
+                { name: 'skills', class: 'SkillsComponent', argsSource: 'archetypeSkills' },
+                { name: 'playerInput', class: 'PlayerInputComponent' },
+                { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 4, sightRangePartial: 6 } },
+                { name: 'statusEffects', class: 'StatusEffectComponent' }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 100 }
+        },
+        // Generic fallback blueprint
+        enemy: {
+            components: [
+                { name: 'stats', class: 'StatsComponent', argsSource: 'entityProperties', dataSourceKey: 'stats' },
+                { name: 'renderable', class: 'RenderableComponent', argsSource: 'entityProperties', dataSourceKey: 'renderable' },
+                { name: 'movement', class: 'MovementComponent', argsSource: 'entityProperties', dataSourceKey: 'movement' },
+                { name: 'behavior', class: 'BehaviorComponent', argsSource: 'entityProperties', dataSourceKey: 'behavior' },
+                { name: 'intent', class: 'IntentComponent' },
+                { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 3, sightRangePartial: 5 } },
+                { name: 'statusEffects', class: 'StatusEffectComponent' }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 90 }
+        },
+        // Specific enemy blueprints
+        goblinScout: {
+            components: [
+                { name: 'stats', class: 'StatsComponent', args: { hp: 35, ap: 4, attackPower: 8, defense: 2, movementRange: 4, xp: 5 } },
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#90ee90', radius: 12 } },
+                { name: 'movement', class: 'MovementComponent', args: { movementRange: 4 } },
+                { name: 'behavior', class: 'BehaviorComponent', args: { type: 'basicMelee' } },
+                { name: 'intent', class: 'IntentComponent' },
+                { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 4, sightRangePartial: 6 } },
+                { name: 'statusEffects', class: 'StatusEffectComponent' }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 90 }
+        },
+        goblinBrute: {
+            components: [
+                { name: 'stats', class: 'StatsComponent', args: { hp: 80, ap: 3, attackPower: 15, defense: 5, movementRange: 2, xp: 20 } },
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#228b22', radius: 16 } },
+                { name: 'movement', class: 'MovementComponent', args: { movementRange: 2 } },
+                { name: 'behavior', class: 'BehaviorComponent', args: { type: 'basicMelee' } },
+                { name: 'intent', class: 'IntentComponent' },
+                { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 3, sightRangePartial: 5 } },
+                { name: 'statusEffects', class: 'StatusEffectComponent' }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 90 }
+        },
+        playerGhost: {
+            components: [
+                { name: 'stats', class: 'StatsComponent', args: { hp: 100, ap: 3, attackPower: 12, defense: 8, movementRange: 3, xp: 50 } },
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#add8e6', radius: 15, opacity: 0.7 } },
+                { name: 'movement', class: 'MovementComponent', args: { movementRange: 3 } },
+                { name: 'behavior', class: 'BehaviorComponent', args: { type: 'basicMelee' } },
+                { name: 'intent', class: 'IntentComponent' },
+                { name: 'visibility', class: 'VisibilityComponent', args: { sightRangeFull: 4, sightRangePartial: 6 } },
+                { name: 'statusEffects', class: 'StatusEffectComponent' }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 90 }
+        },
+        // Trap blueprints
+        spikeTrap: {
+            components: [
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#808080', radius: 10 } },
+                { name: 'visibility', class: 'VisibilityComponent', args: {} },
+                { name: 'trap', class: 'TrapComponent', args: { damage: 15, reusable: true } },
+                { name: 'detection', class: 'DetectionComponent', args: { difficulty: 10 } }
+            ],
+            entityProperties: { blocksMovement: false, isConcealed: true, zIndex: 10 }
+        },
+        snareTrap: {
+            components: [
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#cd853f', radius: 10 } },
+                { name: 'visibility', class: 'VisibilityComponent', args: {} },
+                { name: 'trap', class: 'TrapComponent', args: { statusEffect: 'snared', duration: 2 } },
+                { name: 'detection', class: 'DetectionComponent', args: { difficulty: 12 } }
+            ],
+            entityProperties: { blocksMovement: false, isConcealed: true, zIndex: 10 }
+        },
+        poisonDartTrap: {
+            components: [
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#9acd32', radius: 10 } },
+                { name: 'visibility', class: 'VisibilityComponent', args: {} },
+                { name: 'trap', class: 'TrapComponent', args: { statusEffect: 'poisoned', duration: 3, damage: 5 } },
+                { name: 'detection', class: 'DetectionComponent', args: { difficulty: 15 } }
+            ],
+            entityProperties: { blocksMovement: false, isConcealed: true, zIndex: 10 }
+        },
+        // Interactable blueprints
+        campfire: {
+            components: [
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#ff4500', radius: 14 } },
+                { name: 'visibility', class: 'VisibilityComponent', args: {} },
+                { name: 'interactable', class: 'InteractableComponent', args: { effect: 'rest', healAmount: 50 } }
+            ],
+            entityProperties: { blocksMovement: true, zIndex: 20 }
+        },
+        portal: {
+            components: [
+                { name: 'renderable', class: 'RenderableComponent', args: { fillColor: '#9370db', radius: 16 } },
+                { name: 'visibility', class: 'VisibilityComponent', args: {} },
+                { name: 'portal', class: 'PortalComponent', argsSource: 'entityProperties' }
+            ],
+            entityProperties: { blocksMovement: false, zIndex: 30 }
+        },
+    },
     
-//     prologueMapData: [
-//         {
-//             id: "prologue_map_1",
-//             name: "The Desolate Path",
-//             gridSize: { x: 11, y: 13 },
-//             playerStart: { q: 5, r: 11 },
-//             entities: {
-//                 obstacles: [
-//                     {q: 4, r: 10}, {q: 4, r: 9}, {q: 4, r: 8}, {q: 4, r: 7},
-//                     {q: 6, r: 10}, {q: 6, r: 9}, {q: 6, r: 8}, {q: 6, r: 7},
-//                     {q: 5, r: 6}, {q: 5, r: 5}, {q: 5, r: 4}, {q: 5, r: 3},
-//                     {q: 7, r: 6}, {q: 7, r: 5}, {q: 7, r: 4}, {q: 7, r: 3}
-//                 ], // Winding path
-//                 enemies: [], // No enemies on map 1
-//                 traps: [ // Low-level traps
-//                     {q: 5, r: 9, type: 'spikeTrap'},
-//                     {q: 5, r: 7, type: 'snareTrap'},
-//                     {q: 6, r: 6, type: 'poisonDartTrap'}
-//                 ],
-//                 portals: [
-//                     {q: 5, r: 1, type: 'portal', nextMapId: "prologue_map_2"}
-//                 ]
-//             },
-//         },
-//         {
-//             id: "prologue_map_2",
-//             name: "The Swarm",
-//             gridSize: { x: 11, y: 13 },
-//             playerStart: { q: 5, r: 11 },
-//             entities: {
-//                 obstacles: [
-//                     {q: 5, r: 5}, {q: 6, r: 4}
-//                 ], // Fewer obstacles for swarm
-//                 enemies: [ // A lot of basic enemies
-//                     {q: 7, r: 7, type: 'goblinScout'}, {q: 8, r: 7, type: 'goblinScout'}, {q: 9, r: 7, type: 'goblinScout'},
-//                     {q: 6, r: 8, type: 'goblinScout'}, {q: 7, r: 8, type: 'goblinScout'}, {q: 8, r: 8, type: 'goblinScout'},
-//                     {q: 5, r: 9, type: 'goblinScout'}, {q: 6, r: 9, type: 'goblinScout'}
-//                 ],
-//                 portals: [
-//                     {q: 5, r: 1, type: 'portal', nextMapId: "prologue_map_3"}
-//                 ]
-//             },
-//         },
-//         {
-//             id: "prologue_map_3",
-//             name: "The Mini-Boss Arena",
-//             gridSize: { x: 11, y: 13 },
-//             playerStart: { q: 5, r: 11 },
-//             entities: {
-//                 obstacles: [ // Arena-like setup
-//                     {q: 4, r: 6}, {q: 4, r: 7}, {q: 4, r: 8},
-//                     {q: 6, r: 6}, {q: 6, r: 7}, {q: 6, r: 8},
-//                     {q: 5, r: 4}, {q: 7, r: 4}
-//                 ],
-//                 enemies: [{q: 5, r: 7, type: 'goblinBrute'}], // Single harder mini-boss
-//                 portals: [
-//                     {q: 5, r: 1, type: 'portal', nextMapId: "prologue_map_4"}
-//                 ]
-//             },
-//         },
-//         {
-//             id: "prologue_map_4",
-//             name: "The Rest Campfire",
-//             gridSize: { x: 11, y: 13 },
-//             playerStart: { q: 5, r: 11 },
-//             entities: {
-//                 obstacles: [ // Minimal obstacles, open space
-//                     {q: 3, r: 5}, {q: 7, r: 5}
-//                 ],
-//                 enemies: [],
-//                 campfires: [{q: 5, r: 6, type: 'campfire'}], // Campfire entity
-//                 portals: [
-//                     {q: 5, r: 1, type: 'portal', nextMapId: "prologue_map_5"}
-//                 ]
-//             },
-//         },
-//         {
-//             id: "prologue_map_5",
-//             name: "The Legacy Challenge",
-//             gridSize: { x: 11, y: 13 },
-//             playerStart: { q: 5, r: 11 },
-//             entities: {
-//                 obstacles: [ // Final challenge area
-//                     {q: 4, r: 5}, {q: 6, r: 5},
-//                     {q: 4, r: 8}, {q: 6, r: 8}
-//                 ],
-//                 enemies: [{q: 5, r: 7, type: 'playerGhost'}], // Single enemy, copy of player
-//                 portals: [] // Last map, no outgoing portal
-//             },
-//         },
-//         // ... other map definitions
-//     ],
+    aiBehaviors: {
+        basicMelee: {
+            rules: [
+                { action: 'attack', cost: 1, conditions: [{ type: 'inAttackRange' }] },
+                { action: 'moveToTarget', cost: 1, conditions: [] }
+            ]
+        }
+    },
 
-//     aiBehaviors: {
-//         basicMelee: {
-//             rules: [
-//                 { action: 'attack', cost: 1, conditions: [{ type: 'inAttackRange' }] },
-//                 { action: 'moveToTarget', cost: 1, conditions: [] }
-//             ]
-//         }
-//         // Add more behaviors like 'rangedCautious', 'patrol', etc.
-//     },
+    actions: { // Default costs, skills can override
+        moveCost: 1,
+        attackCost: 1
+    }
+};
 
-//     actions: { // Default costs, skills can override
-//         moveCost: 1,
-//         attackCost: 1
-//     }
-// };
-
-// export default CONFIG;
+export default CONFIG;

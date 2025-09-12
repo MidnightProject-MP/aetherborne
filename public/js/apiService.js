@@ -41,10 +41,18 @@ export async function submitScore(playerName, score) {
 /**
  * Requests a new game session from the server.
  * @param {string} mapId The ID of the map to play.
+ * @param {Object} characterData The initial state of the character starting the game.
  * @returns {Promise<{sessionId: string, seed: string, mapTemplate: Object}>}
  */
-export async function startNewGame(mapId) {
-    const response = await fetch(`${SCRIPT_URL}?action=newGame&mapId=${mapId}`);
+export async function startNewGame(mapId, characterData) {
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'newGame',
+            payload: { mapId, characterData }
+        })
+    });
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Failed to start new game: ${errorData.message || response.statusText}`);
@@ -57,15 +65,16 @@ export async function startNewGame(mapId) {
  * @param {string} sessionId The unique ID of the game session.
  * @param {Array} replayLog An array of actions taken by the player.
  * @param {Object} finalStateClient The client's final state of the game.
+ * @param {string} playerName The name of the player.
  * @returns {Promise<Object>} A promise that resolves to the server's validation response.
  */
-export async function submitReplay(sessionId, replayLog, finalStateClient) {
+export async function submitReplay(sessionId, replayLog, finalStateClient, playerName) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'submitReplay',
-            payload: { sessionId, replayLog, finalStateClient }
+            payload: { sessionId, replayLog, finalStateClient, playerName }
         })
     });
     if (!response.ok) {

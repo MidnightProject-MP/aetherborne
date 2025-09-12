@@ -1,37 +1,53 @@
 /**
  * @file high-score-manager.js
- * @description Manages fetching and submitting high scores using the apiService.
+ * @description Manages fetching and displaying high scores.
  */
 
-import { getHighScores, submitScore } from './apiService.js';
+import { getHighScores } from './apiService.js';
 
-const HighScoreManager = {
-    // Example function to be called by your UI to display scores
+export default class HighScoreManager {
+    constructor() {
+        // This could be expanded to take a UI container element
+    }
+
+    /**
+     * Fetches high scores from the server and renders them into the UI.
+     */
     async displayHighScores() {
-        try {
-            console.log("Fetching high scores from server...");
-            const scores = await getHighScores();
-            console.log("Scores received:", scores);
-            // TODO: Add your code here to render the scores in the UI.
-            // For example, find an element and populate it with the score data.
-            // const scoreList = document.getElementById('high-score-list');
-            // scoreList.innerHTML = scores.map(s => `<li>${s.name}: ${s.score}</li>`).join('');
-        } catch (error) {
-            console.error("Could not display high scores:", error);
-            // TODO: Show an error message in the UI.
-        }
-    },
+        const panel = document.getElementById('high-score-panel');
+        const list = document.getElementById('high-score-list');
 
-    // Example function to be called when a game ends
-    async savePlayerScore(playerName, score) {
+        if (!panel || !list) {
+            console.error('[HighScoreManager] High score UI elements not found.');
+            return;
+        }
+
+        list.innerHTML = '<li>Loading...</li>';
+        panel.classList.remove('hidden');
+
         try {
-            console.log(`Submitting score for ${playerName}: ${score}`);
-            await submitScore(playerName, score);
-            console.log("Score submitted successfully.");
+            const scores = await getHighScores();
+            list.innerHTML = ''; // Clear loading message
+
+            if (scores.length === 0) {
+                list.innerHTML = '<li>No high scores yet. Be the first!</li>';
+                return;
+            }
+
+            scores.forEach(score => {
+                const li = document.createElement('li');
+                // If a sessionId exists, make it a link to the replay viewer.
+                if (score.sessionId) {
+                    li.innerHTML = `<a href="replay.html?sessionId=${score.sessionId}" target="_blank">${score.name} - ${score.score}</a>`;
+                } else {
+                    li.textContent = `${score.name} - ${score.score}`;
+                }
+                list.appendChild(li);
+            });
+
         } catch (error) {
-            console.error("Could not submit high score:", error);
+            console.error('[HighScoreManager] Failed to display high scores:', error);
+            list.innerHTML = '<li>Error loading scores. Please try again.</li>';
         }
     }
-};
-
-export default HighScoreManager;
+}

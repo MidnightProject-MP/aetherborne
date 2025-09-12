@@ -1,5 +1,4 @@
 import { Game } from './game.js';
-import CONFIG from './config.js';
 import { getReplay, getGameConfig } from './apiService.js';
 import StatusEffectSystem from './systems/statusEffectSystem.js';
 import VisibilitySystem from './systems/visibilitySystem.js';
@@ -21,6 +20,8 @@ export class ReplayOrchestrator {
         this.playPauseBtn = document.getElementById('play-pause-btn');
         this.turnCounter = document.getElementById('turn-counter');
         this.statusMessage = document.getElementById('status-message');
+
+        this.eventBus.subscribe('mapTransitionRequest', this.handleMapTransition.bind(this));
     }
 
     async start() {
@@ -41,7 +42,7 @@ export class ReplayOrchestrator {
             ]);
 
             this.replayData = replayData;
-            this.config = { ...CONFIG, ...dynamicConfig };
+            this.config = { ...dynamicConfig }; // Config now fully comes from server
 
             this.showMessage('Initializing game...');
             await this.initializeGame();
@@ -72,7 +73,8 @@ export class ReplayOrchestrator {
             characterData,
             null,
             sessionData,
-            this.config
+            this.config,
+            true // isReplay = true
         );
 
         // Initialize systems, similar to the main orchestrator
@@ -104,31 +106,82 @@ export class ReplayOrchestrator {
         }
     }
 
-    playNextTurn() {
+    async playNextTurn() {
         if (!this.isPlaying || this.currentTurn >= this.replayData.replayLog.length) {
             this.togglePlayback(); // Auto-pause at the end
             return;
         }
 
-        this.executeTurn(this.currentTurn);
+        const success = await this.executeTurn(this.currentTurn);
+
+        if (!success) {
+            this.showError(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`);
+            this.togglePlayback(); // Stop playback
+            return;
+        }
+
         this.currentTurn++;
         this.updateTurnCounter();
 
         this.playbackTimeout = setTimeout(() => this.playNextTurn(), this.playbackSpeed);
     }
 
-    executeTurn(turnIndex) {
+    async executeTurn(turnIndex) {
         const action = this.replayData.replayLog[turnIndex];
-        const targetHex = this.gameInstance.gameMap.getTileByColRow(action.x, action.y);
+        const deserializedAction = this._deserializeActionPayload(action);
+
+        if (!deserializedAction) {
+            console.error(`[Replay] Turn ${turnIndex + 1}: Could not deserialize action:`, action);
+            return false;
+        }
         
-        const payload = {
-            type: 'move',
-            sourceId: this.gameInstance.player.id,
-            details: { targetTile: targetHex }
-        };
-        
-        console.log(`[Replay] Turn ${turnIndex + 1}: Executing action`, payload);
-        this.gameInstance.resolveEntityAction(payload);
+        console.log(`[Replay] Turn ${turnIndex + 1}: Executing action`, deserializedAction);
+        return await this.gameInstance.resolveEntityAction(deserializedAction);
+    }
+
+    /**
+     * Converts a serialized action from the log back into a usable payload.
+     * @private
+     */
+    _deserializeActionPayload(action) {
+        const deserialized = { ...action };
+        if (deserialized.details.targetCoords) {
+            const { q, r } = deserialized.details.targetCoords;
+            const targetTile = this.gameInstance.gameMap.getTile(q, r);
+            if (!targetTile) return null; // Invalid coords in log
+
+            deserialized.details.targetTile = targetTile;
+            delete deserialized.details.targetCoords;
+        }
+        return deserialized;
+    }
+
+    async handleMapTransition({ nextMapId, entityId }) {
+        if (this.gameInstance.player.id !== entityId) return;
+
+        const wasPlaying = this.isPlaying;
+        if (wasPlaying) this.togglePlayback(); // Pause
+
+        if (!nextMapId) {
+            this.showMessage('Dungeon Completed! Replay finished.');
+            this.playPauseBtn.disabled = true;
+            return;
+        }
+
+        this.showMessage(`Transitioning to map: ${nextMapId}...`);
+
+        try {
+            const newMapTemplate = this.config.maps[nextMapId];
+            if (!newMapTemplate) throw new Error(`Map template for '${nextMapId}' not found.`);
+
+            this.gameInstance.sessionData.mapTemplate = newMapTemplate;
+            await this.gameInstance.handleMapTransition(nextMapId, entityId);
+            
+            this.hideMessage();
+            if (wasPlaying) this.togglePlayback(); // Resume
+        } catch (error) {
+            this.showError(`Failed to transition map: ${error.message}`);
+        }
     }
 
     updateTurnCounter() {

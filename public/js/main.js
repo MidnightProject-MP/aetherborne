@@ -5,7 +5,9 @@ import HighScoreManager from './high-score-manager.js';
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("[Main] DOMContentLoaded event fired. Initializing App.");
     const eventBus = new EventBus();
-    // Inject the HighScoreManager into the Orchestrator to make it available to the core application logic.
-    const orchestrator = new Orchestrator(eventBus, HighScoreManager);
+    // Create an instance of the HighScoreManager.
+    const highScoreManager = new HighScoreManager();
+    // Inject the instance into the Orchestrator.
+    const orchestrator = new Orchestrator(eventBus, highScoreManager);
     await orchestrator.start();
 });
