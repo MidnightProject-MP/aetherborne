@@ -4,7 +4,7 @@ import GameMap from './map.js';
 import EntityFactory from './entity-factory.js';
 import SVGRenderer from './ui/svgRenderer.js'; // Import the new SVGRenderer
 import DetectionSystem from './systems/detectionSystem.js'; // New: Import DetectionSystem
-import createSeededRNG from './utils.js';
+import { createSeededRNG } from './utils.js';
 
 /**
  * Represents the core game logic, state, and main loop.
