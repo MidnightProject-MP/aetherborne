@@ -29,7 +29,6 @@ export class Orchestrator {
         this.config = null; // Will hold the merged game configuration
 
         this.bindEventHandlers();
-        this.handleTransitionToSplash = this.handleTransitionToSplash.bind(this);
     }
 
     bindEventHandlers() {
@@ -51,15 +50,6 @@ export class Orchestrator {
             } catch (error) {
                 console.error("[Orchestrator] Failed to submit replay:", error);
             }
-        }
-    }
-
-    handleTransitionToSplash() {
-        console.log("[Orchestrator] Handling transition to splash...");
-        if (this.gameStateManager) {
-            this.gameStateManager.transitionTo('SPLASH');
-        } else {
-            console.error("[Orchestrator] GameStateManager not available for transition!");
         }
     }
 
@@ -160,8 +150,8 @@ export class Orchestrator {
         // 2. Initialize GameStateManager first and show the splash screen immediately.
         this.gameStateManager = await this.initializeGameStateManager();
         console.log("[Orchestrator] GameStateManager initialized.");
-        await this.transitionToSplash();
-        console.log("[Orchestrator] Transitioned to splash screen.");
+        this.gameStateManager.transitionTo('SPLASH');
+        console.log("[Orchestrator] Commanded transition to SPLASH state.");
 
         // NEW STEP: Fetch dynamic config from server and merge with static config.
         console.log("[Orchestrator] Fetching game configuration from server...");
@@ -193,6 +183,7 @@ export class Orchestrator {
         // 4. Set up event handlers
 
         // 6. Wait for character creation
+        console.log("[Orchestrator] Now waiting for user to create a character or continue...");
         const characterData = await this.waitForCharacterCreation();
         console.log("[Orchestrator] Character created.");
 
@@ -338,24 +329,6 @@ export class Orchestrator {
             } catch (error) {
                 console.error("[Orchestrator] Failed to create CharacterCreator:", error);
                 resolve(null);
-            }
-        });
-    }
-
-    /**
-     * Transitions the game state to the splash screen.
-     */
-    transitionToSplash() {
-        return new Promise((resolve) => {
-            console.log("[Orchestrator] Attempting transition to splash...");
-            try {
-                // this.gameStateManager is guaranteed to be set here
-                this.gameStateManager.transitionTo('SPLASH');
-                console.log("[Orchestrator] Successfully transitioned to SPLASH state.");
-                resolve();
-            } catch (error) {
-                console.error("[Orchestrator] Error during splash transition:", error);
-                resolve();
             }
         });
     }

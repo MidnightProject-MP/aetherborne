@@ -113,7 +113,7 @@ input, textarea {
 }
 
 /* --- Splash Screen --- */
-#splash-screen-content {
+#splash-screen {
     align-items: center;
     justify-content: space-between;
     text-align: center;

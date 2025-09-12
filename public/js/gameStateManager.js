@@ -32,7 +32,7 @@ export class GameStateManager {
          * @private
          */
         this.screenElements = {
-            [this.states.SPLASH]: document.getElementById('splash-screen-content'),
+            [this.states.SPLASH]: document.getElementById('splash-screen'),
             [this.states.CHARACTER_CREATION]: document.getElementById('character-creation-poc'),
             [this.states.GAME_MAP]: document.getElementById('map-flow-poc')
         };
