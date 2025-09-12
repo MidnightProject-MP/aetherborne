@@ -1,165 +1,104 @@
-import Entity from './entity.js';
-import entityDefinitions from '../data/entities/index.js';
-import CONFIG from './config.js';
+/**
+ * @file entity-factory.js
+ * @description A factory for creating game entities based on blueprints from the server-provided config.
+ */
 
-// Component Imports
+// Component imports
 import StatsComponent from './components/statsComponent.js';
 import RenderableComponent from './components/renderableComponent.js';
 import MovementComponent from './components/movementComponent.js';
 import SkillsComponent from './components/skillsComponent.js';
 import PlayerInputComponent from './components/playerInputComponent.js';
+import VisibilityComponent from './components/visibilityComponent.js';
+import StatusEffectComponent from './components/statusEffectComponent.js';
 import BehaviorComponent from './components/behaviorComponent.js';
 import IntentComponent from './components/intentComponent.js';
-import ReactionComponent from './components/reactionComponent.js';
-import StatusEffectComponent from './components/statusEffectComponent.js';
-import VisibilityComponent from './components/visibilityComponent.js';
-import DetectionComponent from './components/detectionComponent.js'; // New: Import DetectionComponent
 import TrapComponent from './components/trapComponent.js';
+import DetectionComponent from './components/detectionComponent.js';
 import InteractableComponent from './components/interactableComponent.js';
 import PortalComponent from './components/portalComponent.js';
 
-const componentRegistry = {
-    StatsComponent, RenderableComponent, MovementComponent, SkillsComponent,
-    PlayerInputComponent, BehaviorComponent, IntentComponent,
-    ReactionComponent, StatusEffectComponent, VisibilityComponent, DetectionComponent, // New: Add DetectionComponent
-    TrapComponent, InteractableComponent, PortalComponent
+import { Entity } from './entity.js';
+
+// A map to avoid string-based lookups in the createEntity method
+const componentClasses = {
+    'StatsComponent': StatsComponent,
+    'RenderableComponent': RenderableComponent,
+    'MovementComponent': MovementComponent,
+    'SkillsComponent': SkillsComponent,
+    'PlayerInputComponent': PlayerInputComponent,
+    'VisibilityComponent': VisibilityComponent,
+    'StatusEffectComponent': StatusEffectComponent,
+    'BehaviorComponent': BehaviorComponent,
+    'IntentComponent': IntentComponent,
+    'TrapComponent': TrapComponent,
+    'DetectionComponent': DetectionComponent,
+    'InteractableComponent': InteractableComponent,
+    'PortalComponent': PortalComponent
 };
 
-class EntityFactory {
+export default class EntityFactory {
     constructor(game) {
         this.game = game;
-        this.definitions = entityDefinitions; // Assign to a property
+        this.config = game.CONFIG; // Use the config from the game instance
     }
 
-    createEntity(entityType, initialCoords, instanceSpecificData = {}) {
-        // 1. Get the base definition for the entity type.
-        const baseEntityDefinition = this.definitions[entityType];
-        if (!baseEntityDefinition) {
-            throw new Error(`[EntityFactory] No definition found for entity type: ${entityType}`);
-        }
-
-        // 2. Merge base definition with instance-specific data (e.g., from map file or character creation).
-        const resolvedEntityData = { ...baseEntityDefinition, ...instanceSpecificData };
-
-        // 3. Determine the blueprint to use for components.
-        const isPlayer = (entityType === 'player');
-
-        let blueprintType = isPlayer ? 'player' : resolvedEntityData.blueprint;
-        
-        if (!blueprintType) {
-            // Fallback for older definitions or simple entities.
-            // We can try to infer it from the entity's own 'type' property.
-            blueprintType = resolvedEntityData.type;
-            console.warn(`[EntityFactory] Entity type "${entityType}" has no 'blueprint' property. Falling back to blueprint type: '${blueprintType}'.`);
-        }
-        
-        const blueprint = CONFIG.entityBlueprints?.[blueprintType];
+    /**
+     * Creates an entity based on a blueprint type and initial properties.
+     * @param {string} type - The type of entity to create (e.g., 'player', 'goblinScout').
+     * @param {object|null} initialCoords - The initial {q, r} coordinates.
+     * @param {object} properties - Additional properties to override or add to the blueprint.
+     * @returns {Entity|null} The created entity or null if the blueprint is not found.
+     */
+    createEntity(type, initialCoords, properties = {}) {
+        // For specific enemy types like 'goblinScout', we find its base blueprint (e.g., 'enemy')
+        const blueprintType = this.config.entityBlueprints[type] ? type : 'enemy';
+        const blueprint = this.config.entityBlueprints[blueprintType];
 
         if (!blueprint) {
-            throw new Error(`[EntityFactory] No component blueprint found for type: "${blueprintType}"`);
+            console.error(`[EntityFactory] No blueprint found for type: ${type}`);
+            return null;
         }
+
+        const entity = new Entity(this.game, type, properties.name || type);
         
-        // 4. Handle player-specific archetype data.
-        let archetypeConfig = null;
-        if (isPlayer) {
-            const archetypeId = resolvedEntityData.archetype || 'warrior';
-            archetypeConfig = CONFIG.archetypes[archetypeId];
-            if (!archetypeConfig) {
-                console.error(`[EntityFactory] Archetype config for "${archetypeId}" not found. Defaulting to warrior.`);
-                archetypeConfig = CONFIG.archetypes.warrior;
+        // Assign properties from the blueprint and overrides from the map config
+        Object.assign(entity, blueprint.entityProperties, properties);
+        entity.initialCoords = initialCoords;
+
+        // Add components based on the blueprint
+        for (const compConfig of blueprint.components) {
+            const ComponentClass = componentClasses[compConfig.class];
+            if (ComponentClass) {
+                const args = this._getComponentArgs(compConfig, properties);
+                const component = new ComponentClass(entity, args);
+                entity.addComponent(compConfig.name, component);
+            } else {
+                console.error(`[EntityFactory] Unknown component class: ${compConfig.class}`);
             }
         }
-
-        // 5. Build the final config for the Entity constructor.
-        const entityConfig = {
-            type: resolvedEntityData.type || entityType, // e.g. 'enemy', 'trap', 'player'
-            name: resolvedEntityData.name || (isPlayer ? archetypeConfig.name : entityType),
-            archetype: isPlayer ? (resolvedEntityData.archetype || 'warrior') : undefined,
-            ...resolvedEntityData,
-            ...initialCoords
-        };
-
-        // 6. Create the Entity instance.
-        const entity = new Entity(this.game, entityConfig);
-
-        // 7. Add components based on the blueprint.
-        blueprint.components.forEach(compBlueprint => {
-            const ComponentClass = componentRegistry[compBlueprint.class];
-            if (ComponentClass) {
-                const componentArgs = this._getComponentArguments(compBlueprint, entityType, resolvedEntityData, archetypeConfig);
-                entity.addComponent(new ComponentClass(componentArgs));
-            } else {
-                console.warn(`Component class ${compBlueprint.class} not found in registry.`);
-            }
-        });
 
         return entity;
     }
 
-    _getComponentArguments(compBlueprint, entityType, resolvedEntityData, archetypeConfig) {
-        let componentArgs = { ...(compBlueprint.args || {}) }; // Start with blueprint's default args
+    /**
+     * Gathers the arguments for a component's constructor based on the blueprint config.
+     * @private
+     */
+    _getComponentArgs(compConfig, entityProperties) {
+        if (!compConfig.argsSource) {
+            return compConfig.args || {};
+        }
 
-        switch (compBlueprint.argsSource) {
-            case 'archetypeBaseStats': // For Player's StatsComponent & MovementComponent
-                if (entityType === 'player' && archetypeConfig) {
-                    componentArgs = { ...componentArgs, ...archetypeConfig.baseStats };
-                }
-                break;
-            case 'archetypeSkills': // For Player's SkillsComponent
-                if (entityType === 'player' && archetypeConfig) {
-                    // Map skill IDs to full skill data from CONFIG.skills
-                    const skillsData = archetypeConfig.skills.map(skillId => {
-                        const skillConfig = CONFIG.skills[skillId];
-                        if (!skillConfig) {
-                            console.warn(`[EntityFactory] Skill config for ID "${skillId}" not found for archetype "${archetypeConfig.name}".`);
-                            return null;
-                        }
-                        return { ...skillConfig }; // Pass a copy of the skill config
-                    }).filter(Boolean);
-                    componentArgs = { ...componentArgs, skillsData: skillsData };
-                }
-                break;
-            case 'entityProperties': // For enemies or general properties
-                if (compBlueprint.dataSourceKey && resolvedEntityData[compBlueprint.dataSourceKey]) {
-                    componentArgs = { ...componentArgs, ...resolvedEntityData[compBlueprint.dataSourceKey] };
-                } else if (!compBlueprint.dataSourceKey) {
-                    // If no dataSourceKey is specified, pass all the resolved entity data.
-                    // This is useful for components like PortalComponent that need top-level properties.
-                    componentArgs = { ...componentArgs, ...resolvedEntityData };
-                } else {
-                    console.warn(`[EntityFactory] dataSourceKey "${compBlueprint.dataSourceKey}" not found in resolvedEntityData for ${compBlueprint.name}.`);
-                }
-                break;
-            case 'characterData': // Generic catch-all for player if needed, less specific than archetype sources
-                 if (entityType === 'player') {
-                    componentArgs = { ...componentArgs, ...resolvedEntityData }; // resolvedEntityData is characterData
-                }
-                break;
+        switch (compConfig.argsSource) {
+            case 'archetypeBaseStats':
+                return entityProperties.baseStats || {};
+            case 'archetypeSkills':
+                return { skillIds: entityProperties.skills || [] };
+            case 'entityProperties':
+                return entityProperties[compConfig.dataSourceKey] || compConfig.args || {};
             default:
-                // If no argsSource, componentArgs remains as defined in blueprint.args
-                break;
+                return compConfig.args || {};
         }
-        // Special handling for RenderableComponent
-        if (compBlueprint.class === 'RenderableComponent' && resolvedEntityData.renderable?.imagePath) {
-            componentArgs.imagePath = resolvedEntityData.renderable.imagePath;
-        } else if (compBlueprint.class === 'RenderableComponent') {
-            // Ensure enemies get a default red color if not specified
-            if (entityType !== 'player' && !componentArgs.fillColor && !componentArgs.imagePath) {
-                componentArgs.fillColor = 'red';
-            }
-            // Ensure a default radius if none is provided and it's not an image
-            if (!componentArgs.radius && !componentArgs.imagePath) {
-                componentArgs.radius = entityType === 'player' ? this.game.hexSize.x * 0.7 : this.game.hexSize.x * 0.45;
-            }
-            // Ensure displaySize for images if radius is not applicable
-            if (componentArgs.imagePath && !componentArgs.displaySize) {
-                componentArgs.displaySize = { x: this.game.hexSize.x * 1.5, y: this.game.hexSize.y * 1.5};
-            }
-        }
-
-
-        return componentArgs;
     }
 }
-
-export default EntityFactory;

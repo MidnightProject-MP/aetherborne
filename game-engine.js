@@ -257,6 +257,56 @@ function handleNewGame(e) {
   return { sessionId, seed, mapTemplate };
 }
 
+/**
+ * Fetches data for a specific player from the 'Players' sheet.
+ * @param {Object} e The event parameter from doGet.
+ * @returns {Object} A characterData object ready for the client.
+ */
+function handleGetPlayerData(e) {
+  const playerId = e.parameter.playerId;
+  if (!playerId) {
+    throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
+  }
+
+  // NOTE: This assumes a sheet named 'Players' exists.
+  const playersSheet = getSheet('Players');
+  if (!playersSheet) throw new Error("Critical Error: Sheet 'Players' not found.");
+
+  const data = playersSheet.getDataRange().getValues();
+  const headers = data.shift(); // Get and remove header row
+
+  const playerRow = data.find(row => row[0] === playerId);
+  if (!playerRow) throw new Error(`Player with ID '${playerId}' not found.`);
+
+  const playerData = {};
+  headers.forEach((header, index) => {
+    let value = playerRow[index];
+    if (header.endsWith('_JSON') && typeof value === 'string' && value.trim()) {
+      try {
+        value = JSON.parse(value);
+      } catch (err) {
+        console.error(`Failed to parse JSON for player '${playerId}' in column '${header}': ${value}`);
+        value = {};
+      }
+    }
+    const key = header.replace(/_JSON$/, '');
+    const camelCaseKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
+    playerData[camelCaseKey] = value;
+  });
+
+  const gameConfig = handleGetGameConfig();
+  const archetype = gameConfig.archetypes[playerData.archetypeId];
+  if (!archetype) {
+    throw new Error(`Archetype '${playerData.archetypeId}' for player '${playerId}' not found.`);
+  }
+
+  // Combine data to match the structure from CharacterCreator
+  playerData.baseStats = { ...archetype.baseStats };
+  playerData.skills = [...archetype.skills];
+  
+  return playerData;
+}
+
 // --- DATA ACCESS ---
 function getMapTemplate() {
   const sheet = getSheet('Maps');
@@ -318,6 +368,8 @@ function doGet(e) {
       responseData = handleGetGameConfig();
     } else if (action === 'newGame') {
       responseData = handleNewGame(e);
+    } else if (action === 'getPlayerData') {
+      responseData = handleGetPlayerData(e);
     } else { // Default action is getting a replay for backward compatibility
       const sessionId = e.parameter.sessionId;
       if (!sessionId) throw new Error("Parameter 'action' or 'sessionId' is required.");
@@ -347,38 +399,14 @@ function doGet(e) {
 }
 
 /**
- * @constant POC_MAP_TEMPLATE
- * @description The map template used in the client PoC. This is needed for server-side validation.
- * In a real app, this would be fetched by the client at the start of a session, not hardcoded here.
- */
-const POC_MAP_TEMPLATE = {
-    width: 11,
-    height: 13,
-    tiles: [
-        ['floor', 'floor', 'floor', 'wall', 'wall', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
-        ['floor', 'wall', 'floor', 'floor', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
-        ['floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor'],
-        ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'wall', 'floor'],
-        ['wall', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'wall'],
-        ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
-        ['floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor'],
-        ['floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
-        ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'wall', 'wall', 'floor', 'wall', 'floor'],
-        ['floor', 'wall', 'floor', 'wall', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor'],
-        ['floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor', 'wall', 'floor', 'floor', 'floor'],
-        ['wall', 'wall', 'floor', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
-        ['floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor', 'floor'],
-    ]
-};
-
-/**
  * @function doPost
  * @description Handles player-submitted replays for validation and storage.
  * @param {Object} e The event object from the POST request.
  */
 function doPost(e) {
   try {
-    const request = JSON.parse(e.postData.contents);
+    // Use application/json content type
+    const request = JSON.parse(e.postData.contents); 
     const { action, payload } = request;
 
     if (!action || !payload) {
@@ -394,16 +422,41 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' })).setMimeType(ContentService.MimeType.JSON);
 
     } else if (action === 'submitReplay') {
-      const { session_id, replay_log, final_state_client } = payload;
-      const playerReplaySheet = 'Player_Replays';
-      const seed = session_id;
-      const mapTemplate = POC_MAP_TEMPLATE; // In a real app, this should be part of the payload or fetched.
+      const { sessionId, replayLog, finalStateClient } = payload;
+      if (!sessionId || !replayLog || !finalStateClient) {
+        throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', and 'finalStateClient'.");
+      }
 
-      const game = new GameEngine(seed, mapTemplate);
-      const finalStateServer = game.playGame(replay_log);
-      const isVerified = JSON.stringify(finalStateServer) === JSON.stringify(final_state_client);
-      logPlayerReplay(playerReplaySheet, session_id, seed, mapTemplate, replay_log, finalStateServer, isVerified);
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Replay received.' })).setMimeType(ContentService.MimeType.JSON);
+      // --- 1. Fetch Authoritative Session Data ---
+      const sessionsSheet = getSheet('GameSessions');
+      if (!sessionsSheet) throw new Error("Critical Error: Sheet 'GameSessions' not found.");
+      
+      const sessionsData = sessionsSheet.getDataRange().getValues();
+      const sessionRow = sessionsData.find(row => row[0] === sessionId);
+      if (!sessionRow) throw new Error(`Session with ID '${sessionId}' not found. Replay rejected.`);
+
+      const seed = sessionRow[1];
+      const mapId = sessionRow[2];
+
+      // --- 2. Re-run the game on the server using the authoritative data ---
+      // NOTE: This is the CRITICAL DIVERGENCE POINT. The `GameEngine` class below
+      // is a simple placeholder. For true validation, this must be replaced with
+      // a headless version of the client's full ECS game engine.
+      const mapsSheet = getSheet('Maps');
+      const mapsData = mapsSheet.getDataRange().getValues();
+      const mapRow = mapsData.find(row => row[0] === mapId);
+      if (!mapRow) throw new Error(`Map with ID '${mapId}' from session not found.`);
+      const mapTemplate = JSON.parse(mapRow[2]);
+
+      const serverGame = new GameEngine(seed, mapTemplate);
+      const finalStateServer = serverGame.playGame(replayLog);
+
+      // --- 3. Compare states and log the result ---
+      const isVerified = JSON.stringify(finalStateServer) === JSON.stringify(finalStateClient);
+      logPlayerReplay('PlayerReplays', sessionId, seed, mapTemplate, replayLog, finalStateServer, isVerified);
+      
+      const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified })).setMimeType(ContentService.MimeType.JSON);
     } else {
       throw new Error(`Unknown action: '${action}'.`);
     }

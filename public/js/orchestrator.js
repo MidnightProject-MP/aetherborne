@@ -8,7 +8,7 @@ import TargetPreviewSystem from './systems/targetPreviewSystem.js';
 import DetectionSystem from './systems/detectionSystem.js';
 import IntentSystem from './systems/intentSystem.js';
 import PlayerHUD from './ui/playerHUD.js';
-import { startNewGame, getGameConfig } from './apiService.js';
+import { startNewGame, getGameConfig, submitReplay, getPlayerData } from './apiService.js';
 
 /**
  * Orchestrates the initialization sequence of the game.
@@ -41,6 +41,19 @@ export class Orchestrator {
         if (payload.characterData && typeof payload.score !== 'undefined') {
             const playerName = payload.characterData.name || "Anonymous Hero";
             await this.highScoreManager.savePlayerScore(playerName, payload.score);
+        }
+
+        // Also submit the replay for validation
+        if (payload.replayData) {
+            try {
+                console.log("[Orchestrator] Submitting replay for validation...");
+                // Get the final game state from the game instance in a format the server can verify.
+                const finalStateClient = this.gameInstance.getSerializableState();
+                const validationResult = await submitReplay(payload.replayData.sessionId, payload.replayData.replayLog, finalStateClient);
+                console.log("[Orchestrator] Replay validation result:", validationResult);
+            } catch (error) {
+                console.error("[Orchestrator] Failed to submit replay:", error);
+            }
         }
     }
 
@@ -115,6 +128,31 @@ export class Orchestrator {
     }
 
     /**
+     * Wires up the continue button to load a default character and start the game.
+     */
+    wireContinueButton() {
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) {
+            console.log("[Orchestrator] Continue button found, attaching click handler");
+            continueBtn.addEventListener('click', async () => {
+                console.log('[Orchestrator] Continue button clicked. Loading default player data.');
+                continueBtn.disabled = true;
+                continueBtn.textContent = 'LOADING...';
+                try {
+                    const characterData = await getPlayerData('Player1');
+                    this.eventBus.publish('characterCreated', characterData);
+                } catch (error) {
+                    console.error('[Orchestrator] Failed to load player data:', error);
+                    continueBtn.disabled = false;
+                    continueBtn.textContent = 'Continue';
+                }
+            });
+        } else {
+            console.warn('[Orchestrator] Continue button (continue-btn) not found!');
+        }
+    }
+
+    /**
      * Creates the initialization sequence using an async generator.
      */
     async * createInitializationSequence() {
@@ -130,6 +168,7 @@ export class Orchestrator {
 
         // Wire up splash screen button here
         this.wireSplashScreenStartButton();
+        this.wireContinueButton();
         this.wireHighScoreButton();
 
         // 2. Initialize GameStateManager first
@@ -160,7 +199,7 @@ export class Orchestrator {
         // 7. Request a new game session from the server BEFORE creating the game instance.
         console.log("[Orchestrator] Requesting new game session from server...");
         // We hardcode 'map_01' for now. This could come from a map selection screen.
-        const sessionData = await startNewGame('map_01');
+        const sessionData = await startNewGame(characterData.currentMapId || 'prologue_map_1');
         console.log("[Orchestrator] Session data received:", sessionData);
 
         // 8. Create Game instance directly here, now with server-authoritative session data.

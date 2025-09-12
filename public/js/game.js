@@ -28,6 +28,7 @@ export class Game {
         // --- Server-Authoritative Data ---
         this.sessionData = sessionData;
         this.sessionId = sessionData.sessionId;
+        this.replayLog = []; // NEW: To record player actions for validation
         this.rng = createSeededRNG(sessionData.seed);
         console.log(`[Game] Initializing with session ${this.sessionId} and seed ${sessionData.seed}`);
 
@@ -557,6 +558,13 @@ export class Game {
             return false;
         }
 
+        // For replay validation, log the intended move action.
+        // NOTE: This is a simplified log for the current simple server engine.
+        // A full ECS replay would log the 'entityAction' payload.
+        if (actor.type === 'player') {
+            this.replayLog.push({ x: targetTile.col, y: targetTile.row });
+        }
+
         const moveCost = this.CONFIG.actions.moveCost * (path.length - 1);
         if (actor.type === 'player' && !stats.canAfford(moveCost)) {
             this.eventBus.publish('combatLog', { message: "Not enough AP to move!", type: "warning" });
@@ -675,6 +683,35 @@ export class Game {
         return this.gameMap?.entities.get(entityId) || null;
     }
 
+    /**
+     * Creates a serializable representation of the current game state for validation.
+     * The structure of this object MUST match the structure produced by the server's GameEngine.
+     * @returns {Object} A JSON-friendly object representing the game state.
+     */
+    getSerializableState() {
+        const playerStats = this.player.getComponent('stats');
+        const playerState = {
+            x: this.player.hex.col,
+            y: this.player.hex.row,
+            health: playerStats.hp,
+            attack_power: playerStats.attackPower,
+            level: playerStats.level,
+            xp: playerStats.xp
+        };
+
+        const enemies = this.gameMap.getEnemies().map(enemy => {
+            const enemyStats = enemy.getComponent('stats');
+            return {
+                x: enemy.hex.col,
+                y: enemy.hex.row,
+                health: enemyStats.hp,
+                attack_power: enemyStats.attackPower
+            };
+        });
+
+        return { player: playerState, enemies: enemies };
+    }
+
     removeEntity(entityId) {
         const enemy = this.getEntity(entityId);
         if (enemy) {
@@ -689,7 +726,8 @@ export class Game {
         this.eventBus.publish('gameOver', {
             message: message,
             score: this.player?.getComponent('stats')?.xp || 0,
-            characterData: this.characterData
+            characterData: this.characterData,
+            replayData: { sessionId: this.sessionId, replayLog: this.replayLog }
         });
     }
 
