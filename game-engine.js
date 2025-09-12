@@ -489,7 +489,7 @@ function doPost(e) {
       const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }))
         .setMimeType(ContentService.MimeType.JSON)
-        .setHeader("Access-control-Allow-Origin", "*");
+        .setHeader("Access-Control-Allow-Origin", "*");
     } else {
       throw new Error(`Unknown action: '${action}'.`);
     }
