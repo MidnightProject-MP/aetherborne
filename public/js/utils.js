@@ -18,3 +18,23 @@ export function generateUUID() {
 export function lerp(a, b, t) {
     return a * (1 - t) + b * t;
 }
+
+/**
+ * Creates a seeded pseudo-random number generator (PRNG) using the Mulberry32 algorithm.
+ * This ensures that for the same seed, the sequence of "random" numbers will always be the same,
+ * which is critical for replay validation.
+ * @param {string} seed - The string to use as the seed.
+ * @returns {function(): number} A function that, when called, returns the next number in the sequence.
+ */
+export function createSeededRNG(seed) {
+    let h = 1779033703 ^ seed.length;
+    for (let i = 0; i < seed.length; i++) {
+        h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+        h = h << 13 | h >>> 19;
+    }
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    };
+}

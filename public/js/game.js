@@ -9,7 +9,7 @@ import { createSeededRNG } from './utils.js';
 /**
  * Represents the core game logic, state, and main loop.
  */
-export class Game {
+export default class Game {
     /**
      * @param {EventBus} eventBus The central event bus.
      */
@@ -807,5 +807,3 @@ export class Game {
     }
     start() { /* ... game loop logic ... */ }
 }
-
-export default Game;
