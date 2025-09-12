@@ -8,7 +8,7 @@ import TargetPreviewSystem from './systems/targetPreviewSystem.js';
 import DetectionSystem from './systems/detectionSystem.js';
 import IntentSystem from './systems/intentSystem.js';
 import PlayerHUD from './ui/playerHUD.js';
-import { startNewGame, getGameConfig, submitReplay, getPlayerData } from './apiService.js';
+import { startNewGame, getGameConfig, submitReplay, getPlayerData, updatePlayerState } from './apiService.js';
 
 /**
  * Orchestrates the initialization sequence of the game.
@@ -49,6 +49,17 @@ export class Orchestrator {
                 console.log("[Orchestrator] Replay validation result:", validationResult);
             } catch (error) {
                 console.error("[Orchestrator] Failed to submit replay:", error);
+            }
+        }
+
+        // If the dungeon was completed, save the player's state.
+        if (payload.message === "Dungeon Completed!") {
+            try {
+                const finalState = this.gameInstance.getSerializableState();
+                await updatePlayerState(payload.characterData.playerid, { ...finalState, currentMapId: payload.characterData.currentMapId });
+                console.log(`[Orchestrator] Player state for ${playerName} saved successfully.`);
+            } catch (error) {
+                console.error("[Orchestrator] Failed to save player state:", error);
             }
         }
     }

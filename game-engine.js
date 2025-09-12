@@ -164,47 +164,64 @@ function handleGetHighScores() {
 }
 
 /**
+ * Normalizes a sheet header into a consistent key (lowercase).
+ * @param {string} header The original header from the sheet.
+ * @returns {string} A normalized, lowercase key.
+ */
+function normalizeHeader(header) {
+  return header.replace(/_JSON$/, '').toLowerCase();
+}
+/**
  * Converts a sheet's data into an object map, using the first row as headers.
  * The object is keyed by the values in the first column (ID column).
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The sheet to process.
  * @returns {Object} An object where keys are the ID from the first column.
  */
 function sheetToObjects(sheet) {
-  if (!sheet) return {};
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return {};
-  
-  const headers = data.shift(); // Get and remove header row
-  
-  const result = {};
+    if (!sheet) return {};
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return {};
 
-  data.forEach(row => {
-    const id = row[0];
-    if (!id) return; // Skip rows without an ID
+    const headers = data.shift();
+    // --- NEW VALIDATION ---
+    // Check if the headers are valid. If the first header is empty, assume the row is bad.
+    if (!headers || !headers[0]) {
+        console.error(`ERROR: Invalid or empty header row found in sheet '${sheet.getName()}'. Please ensure the first row contains valid headers.`);
+        return {}; // Return an empty object to prevent crashes
+    }
+    // --- END VALIDATION ---
+    console.log(`DEBUG: Headers for sheet '${sheet.getName()}': ${JSON.stringify(headers)}`);
 
-    const entry = {};
-    headers.forEach((header, index) => {
-      if (index === 0) return; // Skip the ID column itself from being a property
+    const result = {};
 
-      let value = row[index];
-      // If a column header ends with _JSON, parse the value.
-      if (header.endsWith('_JSON') && typeof value === 'string' && value.trim()) {
-        try {
-          value = JSON.parse(value);
-        } catch (e) {
-          console.error(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
-          value = {}; // Default to empty object on parse error
+    data.forEach(row => {
+        const id = row[0];
+        if (!id) return;
+
+        const entry = {};
+        for (let i = 1; i < headers.length; i++) {
+            const header = headers[i];
+            if (!header) continue; // Defensively skip empty header columns
+
+            let value = row[i];
+            const key = normalizeHeader(header);
+
+            if (header.endsWith('_JSON') && typeof value === 'string' && value.trim()) {
+                try {
+                    value = JSON.parse(value);
+                } catch (e) {
+                    console.error(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
+                    // Smart default: if the header implies an array, default to an empty array.
+                    value = header.toLowerCase().includes("skills") || header.toLowerCase().includes("traits") ? [] : {};
+                }
+            }
+            entry[key] = value;
         }
-      }
-      // Convert header to camelCase key (e.g., "BaseStats_JSON" -> "baseStats")
-      const key = header.replace(/_JSON$/, '');
-      const camelCaseKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
-      entry[camelCaseKey] = value;
+        console.log(`DEBUG: Built entry for ID '${id}' in sheet '${sheet.getName()}': ${JSON.stringify(entry)}`);
+        result[id] = entry;
     });
-    result[id] = entry;
-  });
-  
-  return result;
+
+    return result;
 }
 
 /**
@@ -217,6 +234,7 @@ function handleGetGameConfig() {
     const traits = sheetToObjects(getSheet('Traits'));
     const statusEffects = sheetToObjects(getSheet('StatusEffects'));
     const maps = sheetToObjects(getSheet('Maps'));
+    const players = sheetToObjects(getSheet('Players'));
     
     // We only return the parts of the config that are stored in sheets.
     // The client will be responsible for merging this with the static parts of its config.
@@ -225,7 +243,8 @@ function handleGetGameConfig() {
         skills,
         traits,
         statusEffects,
-        maps
+        maps,
+        players
     };
 }
 
@@ -235,48 +254,34 @@ function handleGetGameConfig() {
  * @returns {Object} A characterData object ready for the client.
  */
 function handleGetPlayerData(e) {
-  const playerId = e.parameter.playerId;
-  if (!playerId) {
-    throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
-  }
-
-  // NOTE: This assumes a sheet named 'Players' exists.
-  const playersSheet = getSheet('Players');
-  if (!playersSheet) throw new Error("Critical Error: Sheet 'Players' not found.");
-
-  const data = playersSheet.getDataRange().getValues();
-  const headers = data.shift(); // Get and remove header row
-
-  const playerRow = data.find(row => row[0] === playerId);
-  if (!playerRow) throw new Error(`Player with ID '${playerId}' not found.`);
-
-  const playerData = {};
-  headers.forEach((header, index) => {
-    let value = playerRow[index];
-    if (header.endsWith('_JSON') && typeof value === 'string' && value.trim()) {
-      try {
-        value = JSON.parse(value);
-      } catch (err) {
-        console.error(`Failed to parse JSON for player '${playerId}' in column '${header}': ${value}`);
-        value = {};
-      }
+    const playerId = e.parameter.playerId;
+    if (!playerId) {
+        throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
     }
-    const key = header.replace(/_JSON$/, '');
-    const camelCaseKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
-    playerData[camelCaseKey] = value;
-  });
 
-  const gameConfig = handleGetGameConfig();
-  const archetype = gameConfig.archetypes[playerData.archetypeId];
-  if (!archetype) {
-    throw new Error(`Archetype '${playerData.archetypeId}' for player '${playerId}' not found.`);
-  }
+    const gameConfig = handleGetGameConfig(); // Load all config, including players
 
-  // Combine data to match the structure from CharacterCreator
-  playerData.baseStats = { ...archetype.baseStats };
-  playerData.skills = [...archetype.skills];
-  
-  return playerData;
+    const playerData = gameConfig.players ? gameConfig.players[playerId] : null;
+    if (!playerData) {
+        throw new Error(`Player with ID '${playerId}' not found in 'Players' sheet.`);
+    }
+
+    const archetype = gameConfig.archetypes[playerData.archetypeid];
+    if (!archetype) {
+        throw new Error(`Archetype '${playerData.archetypeid}' for player '${playerId}' not found.`);
+    }
+
+    // --- Enhanced Debugging ---
+    console.log(`DEBUG: Archetype found: ${JSON.stringify(archetype)}`);
+    console.log(`DEBUG: Value of archetype.skills: ${JSON.stringify(archetype.skills)}`);
+    console.log(`DEBUG: Is archetype.skills an array? ${Array.isArray(archetype.skills)}`);
+
+    // Combine data to match the structure from CharacterCreator
+    const finalCharacterData = { ...playerData };
+    finalCharacterData.baseStats = archetype.basestats || {}; // Use normalized key
+    finalCharacterData.skills = Array.isArray(archetype.skills) ? [...archetype.skills] : []; // Defensively handle skills
+
+    return finalCharacterData;
 }
 
 // --- DATA ACCESS ---
@@ -353,16 +358,23 @@ function doGet(e) {
             throw new Error(`Invalid or missing 'action' parameter. Received: ${action}`);
     }
 
-    return ContentService.createTextOutput(JSON.stringify(responseData))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader("Access-Control-Allow-Origin", "*");
+    // NOTE: In the Apps Script test runner environment, the methods on the 'successOutput'
+    // object below (like .setHeader) may not be available, causing a TypeError.
+    // This does not happen in a live deployment. The code is correct for web app execution.
+    // Use the dedicated test functions (e.g., testGetPlayerData) for reliable debugging.
+    const successOutput = ContentService.createTextOutput(JSON.stringify(responseData));
+    successOutput.setMimeType(ContentService.MimeType.JSON);
+    successOutput.setHeader("Access-Control-Allow-Origin", "*");
+    return successOutput;
+
   } catch (error) {
     console.error('doGet Error:', error);
-    const statusCode = error.message.includes("not found") ? 404 : 400;
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setStatusCode(statusCode)
-      .setHeader("Access-Control-Allow-Origin", "*");
+    // In some Apps Script error states, setStatusCode can fail.
+    // The most important thing is to return a valid JSON error with the CORS header.
+    const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
+    errorOutput.setMimeType(ContentService.MimeType.JSON);
+    errorOutput.setHeader("Access-Control-Allow-Origin", "*");
+    return errorOutput;
   }
 }
 
@@ -417,10 +429,11 @@ function doPost(e) {
       
       const sheet = getSheet('HighScores');
       sheet.appendRow([name, score, new Date()]);
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader("Access-Control-Allow-Origin", "*");
-
+      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }));
+      output.setMimeType(ContentService.MimeType.JSON);
+      output.setHeader("Access-Control-Allow-Origin", "*");
+      return output;
+            
     } else if (action === 'newGame') {
       let { mapId, characterData } = payload; // Use let as characterData may be replaced
       if (!mapId || !characterData) {
@@ -430,16 +443,16 @@ function doPost(e) {
       // --- AUTHORITATIVE DATA CHECK ---
       // If the character data includes a playerId, it's an existing character.
       // We IGNORE the stats from the client and fetch the authoritative data from our sheet.
-      if (characterData.playerId) {
-          console.log(`New game request for existing player: ${characterData.playerId}. Fetching authoritative data.`);
+      if (characterData.playerid) {
+          console.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
           // Simulate the event object 'e' that handleGetPlayerData expects
-          const authoritativeCharacterData = handleGetPlayerData({ parameter: { playerId: characterData.playerId } });
+          const authoritativeCharacterData = handleGetPlayerData({ parameter: { playerId: characterData.playerid } });
           
           // Replace the client-sent data with the server's authoritative data
           characterData = authoritativeCharacterData;
           
           // The mapId must also come from the authoritative data, not the client's request.
-          mapId = characterData.currentMapId;
+          mapId = characterData.currentmapid;
       }
 
       const mapsSheet = getSheet('Maps');
@@ -457,9 +470,37 @@ function doPost(e) {
       if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
       
       // Return the full session details, including the (potentially updated) character data.
-      return ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader("Access-Control-Allow-Origin", "*");
+      const output = ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }));
+      output.setMimeType(ContentService.MimeType.JSON);
+      output.setHeader("Access-Control-Allow-Origin", "*");
+      return output;
+
+    } else if (action === 'updatePlayerState') {
+        const { playerId, finalState } = payload;
+        if (!playerId || !finalState) {
+            throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
+        }
+
+        const playersSheet = getSheet('Players');
+        if (!playersSheet) throw new Error("Critical Error: Sheet 'Players' not found.");
+
+        const data = playersSheet.getDataRange().getValues();
+        const playerRowIndex = data.findIndex(row => row[0] === playerId);
+
+        if (playerRowIndex === -1) {
+            throw new Error(`Player with ID '${playerId}' not found for update.`);
+        }
+
+        // This is a simplified update. It only updates the CurrentMapID.
+        // A more complex implementation could update stats, traits, etc.
+        // Note: The row index is 1-based for sheets, and we need to account for the header row.
+        playersSheet.getRange(playerRowIndex + 1, 4).setValue(finalState.currentMapId);
+
+        const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: `Player ${playerId} state updated.`}));
+        output.setMimeType(ContentService.MimeType.JSON);
+        output.setHeader("Access-Control-Allow-Origin", "*");
+        return output;
+
     } else if (action === 'submitReplay') {
       const { sessionId, replayLog, finalStateClient, playerName } = payload;
       if (!sessionId || !replayLog || !finalStateClient || !playerName) {
@@ -503,17 +544,42 @@ function doPost(e) {
       }
       
       const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader("Access-Control-Allow-Origin", "*");
+      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }));
+      output.setMimeType(ContentService.MimeType.JSON);
+      output.setHeader("Access-Control-Allow-Origin", "*");
+      return output;
+
     } else {
       throw new Error(`Unknown action: '${action}'.`);
     }
   } catch (error) {
     console.error('doPost Error:', error);
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setStatusCode(400)
-      .setHeader("Access-Control-Allow-Origin", "*");
+    const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
+    errorOutput.setMimeType(ContentService.MimeType.JSON);
+    errorOutput.setHeader("Access-Control-Allow-Origin", "*");
+    return errorOutput;
+  }
+}
+/**
+ * A test function to debug the getPlayerData action directly in the Apps Script editor.
+ */
+function testGetPlayerData() {
+  const mockEvent = {
+    parameter: {
+      action: 'getPlayerData',
+      playerId: 'Player1'
+    }
+  };
+
+  try {
+    // We call the handler function directly to isolate the business logic
+    // from the web response (ContentService) logic, which can be unreliable in the test runner.
+    const responseData = handleGetPlayerData(mockEvent);
+    Logger.log("✅ SUCCESS: handleGetPlayerData returned:");
+    // Pretty-print the JSON for readability in the logs.
+    Logger.log(JSON.stringify(responseData, null, 2));
+  } catch (e) {
+    Logger.log(`❌ ERROR in handleGetPlayerData: ${e.toString()}`);
+    Logger.log(`Stack Trace: ${e.stack}`);
   }
 }

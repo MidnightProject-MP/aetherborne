@@ -117,9 +117,33 @@ export async function getReplay(sessionId) {
  */
 export async function getPlayerData(playerId) {
     const response = await fetch(`${SCRIPT_URL}?action=getPlayerData&playerId=${playerId}`);
+    // The response.ok check is not sufficient for Apps Script errors that return a 200 status.
+    // We must inspect the body.
+    const data = await response.json();
+
+    if (data.status === 'error') {
+        throw new Error(`Server error fetching player data: ${data.message}`);
+    }
+    return data;
+}
+
+/**
+ * Updates a player's persistent state on the server.
+ * @param {string} playerId The ID of the player to update.
+ * @param {Object} finalState The final state of the player character.
+ * @returns {Promise<Object>}
+ */
+export async function updatePlayerState(playerId, finalState) {
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: 'updatePlayerState',
+            payload: { playerId, finalState }
+        })
+    });
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to fetch player data: ${errorData.message || response.statusText}`);
+        throw new Error(`Failed to update player state: ${response.statusText}`);
     }
     return response.json();
 }
