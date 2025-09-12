@@ -37,7 +37,7 @@
     --button-border-radius: var(--border-radius-base); /* Default button border radius */
 
     /* Textures (if used globally) */
-    --texture-image: url('/assets/parchment.png'); /* Example texture */
+    --texture-image: url('./public/assets/parchment.png'); /* Example texture */
     --texture-blend-mode: overlay;
     --texture-size: cover;
 
@@ -45,7 +45,7 @@
     --font-family: 'Cinzel', serif; /* Default font */
 
     /* Splash Screen Specific */
-    --splash-bg-image: url('/assets/splash4.png');
+    --splash-bg-image: url('./public/assets/splash4.png');
     --splash-bg-size: cover;
     --splash-bg-position: center;
     --splash-bg-repeat: no-repeat;
