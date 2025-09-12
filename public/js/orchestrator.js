@@ -153,15 +153,38 @@ export class Orchestrator {
         this.gameStateManager.transitionTo('SPLASH');
         console.log("[Orchestrator] Commanded transition to SPLASH state.");
 
-        // NEW STEP: Fetch dynamic config from server and merge with static config.
+        // --- UI Feedback for Loading ---
+        const continueBtn = document.getElementById('continue-btn');
+        const newGameBtn = document.getElementById('start-btn');
+        if (continueBtn) {
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Loading...';
+        }
+        if (newGameBtn) {
+            newGameBtn.disabled = true;
+            newGameBtn.textContent = 'Loading...';
+        }
+
+        // Fetch dynamic config from server.
         console.log("[Orchestrator] Fetching game configuration from server...");
         try {
             const dynamicConfig = await getGameConfig();
             this.config = { ...CONFIG, ...dynamicConfig };
             console.log("[Orchestrator] Game configuration loaded.");
+
+            // --- Restore UI on Success ---
+            if (continueBtn) {
+                continueBtn.disabled = false;
+                continueBtn.textContent = 'Continue';
+            }
+            if (newGameBtn) {
+                newGameBtn.disabled = false;
+                newGameBtn.textContent = 'New Game';
+            }
         } catch (error) {
             console.error("[Orchestrator] CRITICAL: Failed to load game configuration from server.", error);
-            // Here you could display a permanent error message on the screen.
+            if (continueBtn) continueBtn.textContent = 'Error';
+            if (newGameBtn) newGameBtn.textContent = 'Error';
             return; // Stop initialization
         }
 
@@ -184,14 +207,23 @@ export class Orchestrator {
 
         // 6. Wait for character creation
         console.log("[Orchestrator] Now waiting for user to create a character or continue...");
-        const characterData = await this.waitForCharacterCreation();
+        const initialCharacterData = await this.waitForCharacterCreation();
         console.log("[Orchestrator] Character created.");
 
         // 7. Request a new game session from the server BEFORE creating the game instance.
         console.log("[Orchestrator] Requesting new game session from server...");
-        // We hardcode 'map_01' for now. This could come from a map selection screen.
-        const sessionData = await startNewGame(characterData.currentMapId || 'prologue_map_1', characterData);
-        console.log("[Orchestrator] Session data received:", sessionData);
+        // The server now returns the authoritative session AND character data.
+        const authoritativeSession = await startNewGame(initialCharacterData.currentMapId || 'prologue_map_1', initialCharacterData);
+        console.log("[Orchestrator] Authoritative session data received:", authoritativeSession);
+
+        // Use the data returned from the server, not the initial data.
+        // This is the core of the security fix.
+        const characterData = authoritativeSession.characterData;
+        const sessionData = { 
+            sessionId: authoritativeSession.sessionId, 
+            seed: authoritativeSession.seed, 
+            mapTemplate: authoritativeSession.mapTemplate 
+        };
 
         // 8. Create Game instance directly here, now with server-authoritative session data.
         this.gameInstance = new Game(

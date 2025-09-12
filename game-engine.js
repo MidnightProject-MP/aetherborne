@@ -360,12 +360,24 @@ function doGet(e) {
       if (!responseData) throw new Error(`Replay with sessionId '${sessionId}' not found.`);
     }
 
-    return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify(responseData))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*");
   } catch (error) {
     console.error('doGet Error:', error);
     const statusCode = error.message.includes("not found") ? 404 : 400;
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message })).setMimeType(ContentService.MimeType.JSON).setStatusCode(statusCode);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setStatusCode(statusCode)
+      .setHeader("Access-Control-Allow-Origin", "*");
   }
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput()
+    .setHeader("Access-Control-Allow-Origin", "*")
+    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    .setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 /**
@@ -389,12 +401,29 @@ function doPost(e) {
       
       const sheet = getSheet('HighScores');
       sheet.appendRow([name, score, new Date()]);
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader("Access-Control-Allow-Origin", "*");
 
     } else if (action === 'newGame') {
-      const { mapId, characterData } = payload;
+      let { mapId, characterData } = payload; // Use let as characterData may be replaced
       if (!mapId || !characterData) {
         throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
+      }
+
+      // --- AUTHORITATIVE DATA CHECK ---
+      // If the character data includes a playerId, it's an existing character.
+      // We IGNORE the stats from the client and fetch the authoritative data from our sheet.
+      if (characterData.playerId) {
+          console.log(`New game request for existing player: ${characterData.playerId}. Fetching authoritative data.`);
+          // Simulate the event object 'e' that handleGetPlayerData expects
+          const authoritativeCharacterData = handleGetPlayerData({ parameter: { playerId: characterData.playerId } });
+          
+          // Replace the client-sent data with the server's authoritative data
+          characterData = authoritativeCharacterData;
+          
+          // The mapId must also come from the authoritative data, not the client's request.
+          mapId = characterData.currentMapId;
       }
 
       const mapsSheet = getSheet('Maps');
@@ -410,7 +439,11 @@ function doPost(e) {
 
       const sessionsSheet = getSheet('GameSessions');
       if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
-      return ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate })).setMimeType(ContentService.MmeType.JSON);
+      
+      // Return the full session details, including the (potentially updated) character data.
+      return ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader("Access-Control-Allow-Origin", "*");
     } else if (action === 'submitReplay') {
       const { sessionId, replayLog, finalStateClient, playerName } = payload;
       if (!sessionId || !replayLog || !finalStateClient || !playerName) {
@@ -454,13 +487,17 @@ function doPost(e) {
       }
       
       const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader("Access-control-Allow-Origin", "*");
     } else {
       throw new Error(`Unknown action: '${action}'.`);
     }
   } catch (error) {
     console.error('doPost Error:', error);
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message }))
-      .setMimeType(ContentService.MimeType.JSON).setStatusCode(400);
+      .setMimeType(ContentService.MimeType.JSON)
+      .setStatusCode(400)
+      .setHeader("Access-Control-Allow-Origin", "*");
   }
 }
