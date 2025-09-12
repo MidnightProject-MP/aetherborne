@@ -103,7 +103,7 @@ export async function getGameConfig() {
  * @returns {Promise<Object>} A promise that resolves to the full replay data object.
  */
 export async function getReplay(sessionId) {
-    const response = await fetch(`${SCRIPT_URL}?sessionId=${sessionId}`);
+    const response = await fetch(`${SCRIPT_URL}?action=getReplay&sessionId=${sessionId}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch replay for session ${sessionId}: ${response.statusText}`);
     }

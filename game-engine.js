@@ -334,30 +334,23 @@ function doGet(e) {
     const action = e.parameter.action;
     let responseData;
 
-    if (action === 'getHighScores') {
-      responseData = handleGetHighScores();
-    } else if (action === 'getGameConfig') {
-      responseData = handleGetGameConfig();
-    } else if (action === 'getPlayerData') {
-      responseData = handleGetPlayerData(e);
-    } else { // Default action is getting a replay for backward compatibility
-      const sessionId = e.parameter.sessionId;
-      if (!sessionId) throw new Error("Parameter 'action' or 'sessionId' is required.");
-      
-      const sheetsToSearch = ['AI_Agent_001', 'Player_Replays'];
-      for (const sheetName of sheetsToSearch) {
-        const sheet = getSheet(sheetName);
-        if (!sheet) continue;
-        const values = sheet.getDataRange().getValues();
-        for (let i = values.length - 1; i >= 0; i--) {
-          if (values[i][0] === sessionId) {
-            responseData = { sessionId: values[i][0], seed: values[i][1], mapTemplate: JSON.parse(values[i][2]), replayLog: JSON.parse(values[i][3]) };
+    // Stricter routing based on the 'action' parameter.
+    switch (action) {
+        case 'getHighScores':
+            responseData = handleGetHighScores();
             break;
-          }
-        }
-        if (responseData) break;
-      }
-      if (!responseData) throw new Error(`Replay with sessionId '${sessionId}' not found.`);
+        case 'getGameConfig':
+            responseData = handleGetGameConfig();
+            break;
+        case 'getPlayerData':
+            responseData = handleGetPlayerData(e);
+            break;
+        case 'getReplay': // Explicit action for getting a replay
+            responseData = handleGetReplay(e);
+            break;
+        default:
+            // If no valid action is provided, throw an error.
+            throw new Error(`Invalid or missing 'action' parameter. Received: ${action}`);
     }
 
     return ContentService.createTextOutput(JSON.stringify(responseData))
@@ -371,6 +364,29 @@ function doGet(e) {
       .setStatusCode(statusCode)
       .setHeader("Access-Control-Allow-Origin", "*");
   }
+}
+
+/**
+ * Handles a request to fetch a specific replay by its session ID.
+ * @param {Object} e The event parameter from doGet.
+ * @returns {Object} The full replay data object.
+ */
+function handleGetReplay(e) {
+    const sessionId = e.parameter.sessionId;
+    if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
+
+    const sheetsToSearch = ['AI_Agent_001', 'PlayerReplays'];
+    for (const sheetName of sheetsToSearch) {
+        const sheet = getSheet(sheetName);
+        if (!sheet) continue;
+        const values = sheet.getDataRange().getValues();
+        for (let i = values.length - 1; i >= 0; i--) {
+            if (values[i][0] === sessionId) {
+                return { sessionId: values[i][0], seed: values[i][1], mapTemplate: JSON.parse(values[i][2]), replayLog: JSON.parse(values[i][3]) };
+            }
+        }
+    }
+    throw new Error(`Replay with sessionId '${sessionId}' not found.`);
 }
 
 function doOptions(e) {
