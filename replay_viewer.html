@@ -182,10 +182,19 @@
             const scriptUrl = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXKlxboqixhPxs27pOC27dNCh4BJ-fVAVl3r5QDrjJ8MtCh13YtQ/exec";
             
             replayStatus.textContent = "Loading replay...";
-            const response = await fetch(`${scriptUrl}?sessionId=${sessionId}`);
+            // Convert to a POST request to avoid CORS preflight issues and match the server's doPost handler.
+            const response = await fetch(scriptUrl, {
+                method: 'POST',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'getReplay',
+                    payload: { sessionId }
+                })
+            });
             
             if (!response.ok) {
-                replayStatus.textContent = `Error: Could not fetch replay for ${sessionId}`;
+                replayStatus.textContent = `Error: Could not fetch replay. Status: ${response.statusText}`;
                 return null;
             }
             

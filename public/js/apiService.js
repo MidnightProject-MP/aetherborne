@@ -13,6 +13,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXK
 export async function getHighScores() {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'getHighScores', payload: {} })
     });
@@ -32,6 +33,7 @@ export async function getHighScores() {
 export async function submitScore(playerName, score) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         // Using text/plain can often bypass complex CORS preflight checks.
         // The Apps Script backend can still parse the JSON string from the body.
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -55,6 +57,7 @@ export async function submitScore(playerName, score) {
 export async function startNewGame(mapId, characterData) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'newGame',
@@ -79,6 +82,7 @@ export async function startNewGame(mapId, characterData) {
 export async function submitReplay(sessionId, replayLog, finalStateClient, playerName) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'submitReplay',
@@ -98,6 +102,7 @@ export async function submitReplay(sessionId, replayLog, finalStateClient, playe
 export async function getGameConfig() {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'getGameConfig', payload: {} })
     });
@@ -117,6 +122,7 @@ export async function getGameConfig() {
 export async function getReplay(sessionId) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'getReplay',
@@ -139,6 +145,7 @@ export async function getReplay(sessionId) {
 export async function getPlayerData(playerId) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'getPlayerData',
@@ -162,6 +169,7 @@ export async function getPlayerData(playerId) {
 export async function updatePlayerState(playerId, finalState) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
             action: 'updatePlayerState',
