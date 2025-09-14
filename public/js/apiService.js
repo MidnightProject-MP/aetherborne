@@ -11,11 +11,17 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXK
  * @returns {Promise<Array>} A promise that resolves to an array of score objects.
  */
 export async function getHighScores() {
-    const response = await fetch(`${SCRIPT_URL}?action=getHighScores`);
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getHighScores', payload: {} })
+    });
     if (!response.ok) {
         throw new Error(`Failed to fetch high scores: ${response.statusText}`);
     }
-    return response.json();
+    const data = await response.json();
+    if (data.status === 'error') throw new Error(`Server error fetching high scores: ${data.message}`);
+    return data;
 }
 
 /**
@@ -90,11 +96,17 @@ export async function submitReplay(sessionId, replayLog, finalStateClient, playe
  * @returns {Promise<Object>} A promise that resolves to the game config object.
  */
 export async function getGameConfig() {
-    const response = await fetch(`${SCRIPT_URL}?action=getGameConfig`);
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getGameConfig', payload: {} })
+    });
     if (!response.ok) {
         throw new Error(`Failed to fetch game config: ${response.statusText}`);
     }
-    return response.json();
+    const data = await response.json();
+    if (data.status === 'error') throw new Error(`Server error fetching game config: ${data.message}`);
+    return data;
 }
 
 /**
@@ -103,11 +115,20 @@ export async function getGameConfig() {
  * @returns {Promise<Object>} A promise that resolves to the full replay data object.
  */
 export async function getReplay(sessionId) {
-    const response = await fetch(`${SCRIPT_URL}?action=getReplay&sessionId=${sessionId}`);
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: 'getReplay',
+            payload: { sessionId }
+        })
+    });
     if (!response.ok) {
         throw new Error(`Failed to fetch replay for session ${sessionId}: ${response.statusText}`);
     }
-    return response.json();
+    const data = await response.json();
+    if (data.status === 'error') throw new Error(`Server error fetching replay: ${data.message}`);
+    return data;
 }
 
 /**
@@ -116,9 +137,14 @@ export async function getReplay(sessionId) {
  * @returns {Promise<Object>} A promise that resolves to the character data object.
  */
 export async function getPlayerData(playerId) {
-    const response = await fetch(`${SCRIPT_URL}?action=getPlayerData&playerId=${playerId}`);
-    // The response.ok check is not sufficient for Apps Script errors that return a 200 status.
-    // We must inspect the body.
+    const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: 'getPlayerData',
+            payload: { playerId }
+        })
+    });
     const data = await response.json();
 
     if (data.status === 'error') {

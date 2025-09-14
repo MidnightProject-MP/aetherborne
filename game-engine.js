@@ -250,11 +250,11 @@ function handleGetGameConfig() {
 
 /**
  * Fetches data for a specific player from the 'Players' sheet.
- * @param {Object} e The event parameter from doGet.
+ * @param {Object} payload The payload from the POST request.
  * @returns {Object} A characterData object ready for the client.
  */
-function handleGetPlayerData(e) {
-    const playerId = e.parameter.playerId;
+function handleGetPlayerData(payload) {
+    const playerId = payload.playerId;
     if (!playerId) {
         throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
     }
@@ -335,41 +335,12 @@ function runAiAgent() {
  * @param {Object} e The event object from the GET request.
  */
 function doGet(e) {
-  try {
-    const action = e.parameter.action;
-    let responseData;
-
-    // Stricter routing based on the 'action' parameter.
-    switch (action) {
-        case 'getHighScores':
-            responseData = handleGetHighScores();
-            break;
-        case 'getGameConfig':
-            responseData = handleGetGameConfig();
-            break;
-        case 'getPlayerData':
-            responseData = handleGetPlayerData(e);
-            break;
-        case 'getReplay': // Explicit action for getting a replay
-            responseData = handleGetReplay(e);
-            break;
-        default:
-            // If no valid action is provided, throw an error.
-            throw new Error(`Invalid or missing 'action' parameter. Received: ${action}`);
-    }
-
-    const successOutput = ContentService.createTextOutput(JSON.stringify(responseData));
-    successOutput.setMimeType(ContentService.MimeType.JSON);
-    successOutput.setHeader("Access-Control-Allow-Origin", "*");
-    return successOutput;
-
-  } catch (error) {
-    console.error('doGet Error:', error);
-    const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
-    errorOutput.setMimeType(ContentService.MimeType.JSON);
-    errorOutput.setHeader("Access-Control-Allow-Origin", "*");
-    return errorOutput;
-  }
+  // doGet is no longer used for primary API actions.
+  // All actions are now handled via doPost to simplify CORS management.
+  // This can be used for a simple health check if needed.
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'API is running. Use POST for actions.' }))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader("Access-Control-Allow-Origin", "*");
 }
 
 /**
@@ -377,8 +348,8 @@ function doGet(e) {
  * @param {Object} e The event parameter from doGet.
  * @returns {Object} The full replay data object.
  */
-function handleGetReplay(e) {
-    const sessionId = e.parameter.sessionId;
+function handleGetReplay(payload) {
+    const sessionId = payload.sessionId;
     if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
 
     const sheetsToSearch = ['AI_Agent_001', 'PlayerReplays'];
@@ -411,12 +382,32 @@ function doPost(e) {
   try {
     // Use application/json content type
     const request = JSON.parse(e.postData.contents); 
-    const { action, payload } = request;
+    const action = request.action;
+    const payload = request.payload || {}; // Ensure payload is an object even if empty
 
-    if (!action || !payload) {
-      throw new Error("Request must include 'action' and 'payload' properties.");
+    if (!action) {
+      throw new Error("Request must include an 'action' property.");
     }
 
+    // --- NEW: Handle actions previously in doGet ---
+    if (action === 'getHighScores') {
+        const responseData = handleGetHighScores();
+        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
+    }
+    if (action === 'getGameConfig') {
+        const responseData = handleGetGameConfig();
+        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
+    }
+    if (action === 'getPlayerData') {
+        const responseData = handleGetPlayerData(payload);
+        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
+    }
+    if (action === 'getReplay') {
+        const responseData = handleGetReplay(payload);
+        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
+    }
+
+    // --- Existing POST actions ---
     if (action === 'submitScore') {
       const { name, score } = payload;
       if (!name || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'name' (string) and 'score' (number).");
@@ -440,7 +431,7 @@ function doPost(e) {
       if (characterData.playerid) {
           console.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
           // Simulate the event object 'e' that handleGetPlayerData expects
-          const authoritativeCharacterData = handleGetPlayerData({ parameter: { playerId: characterData.playerid } });
+          const authoritativeCharacterData = handleGetPlayerData({ playerId: characterData.playerid });
           
           // Replace the client-sent data with the server's authoritative data
           characterData = authoritativeCharacterData;
@@ -559,10 +550,8 @@ function doPost(e) {
  */
 function testGetPlayerData() {
   const mockEvent = {
-    parameter: {
-      action: 'getPlayerData',
-      playerId: 'Player1'
-    }
+    // This now simulates the 'payload' object
+    playerId: 'Player1'
   };
 
   try {
