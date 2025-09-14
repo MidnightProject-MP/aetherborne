@@ -179,7 +179,7 @@
         
         async function fetchReplay(sessionId) {
             // IMPORTANT: Paste your Apps Script web app URL here
-            const scriptUrl = "https://script.google.com/macros/s/AKfycbx_E0nLuFmvt00b1BBgKBjcm_uH6mWWo26t77yFDIk-cq97hicPXoOUDIinnB-5CFaHRQ/exec";
+            const scriptUrl = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXKlxboqixhPxs27pOC27dNCh4BJ-fVAVl3r5QDrjJ8MtCh13YtQ/exec";
             
             replayStatus.textContent = "Loading replay...";
             const response = await fetch(`${scriptUrl}?sessionId=${sessionId}`);

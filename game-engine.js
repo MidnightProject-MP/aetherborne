@@ -358,10 +358,6 @@ function doGet(e) {
             throw new Error(`Invalid or missing 'action' parameter. Received: ${action}`);
     }
 
-    // NOTE: In the Apps Script test runner environment, the methods on the 'successOutput'
-    // object below (like .setHeader) may not be available, causing a TypeError.
-    // This does not happen in a live deployment. The code is correct for web app execution.
-    // Use the dedicated test functions (e.g., testGetPlayerData) for reliable debugging.
     const successOutput = ContentService.createTextOutput(JSON.stringify(responseData));
     successOutput.setMimeType(ContentService.MimeType.JSON);
     successOutput.setHeader("Access-Control-Allow-Origin", "*");
@@ -369,8 +365,6 @@ function doGet(e) {
 
   } catch (error) {
     console.error('doGet Error:', error);
-    // In some Apps Script error states, setStatusCode can fail.
-    // The most important thing is to return a valid JSON error with the CORS header.
     const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
     errorOutput.setMimeType(ContentService.MimeType.JSON);
     errorOutput.setHeader("Access-Control-Allow-Origin", "*");
@@ -429,9 +423,9 @@ function doPost(e) {
       
       const sheet = getSheet('HighScores');
       sheet.appendRow([name, score, new Date()]);
-      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }));
-      output.setMimeType(ContentService.MimeType.JSON);
-      output.setHeader("Access-Control-Allow-Origin", "*");
+      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }))
+            .setMimeType(ContentService.MimeType.JSON)
+            .setHeader("Access-Control-Allow-Origin", "*");
       return output;
             
     } else if (action === 'newGame') {
@@ -470,9 +464,9 @@ function doPost(e) {
       if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
       
       // Return the full session details, including the (potentially updated) character data.
-      const output = ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }));
-      output.setMimeType(ContentService.MimeType.JSON);
-      output.setHeader("Access-Control-Allow-Origin", "*");
+      const output = ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }))
+            .setMimeType(ContentService.MimeType.JSON)
+            .setHeader("Access-Control-Allow-Origin", "*");
       return output;
 
     } else if (action === 'updatePlayerState') {
@@ -496,9 +490,9 @@ function doPost(e) {
         // Note: The row index is 1-based for sheets, and we need to account for the header row.
         playersSheet.getRange(playerRowIndex + 1, 4).setValue(finalState.currentMapId);
 
-        const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: `Player ${playerId} state updated.`}));
-        output.setMimeType(ContentService.MimeType.JSON);
-        output.setHeader("Access-Control-Allow-Origin", "*");
+        const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: `Player ${playerId} state updated.`}))
+            .setMimeType(ContentService.MimeType.JSON)
+            .setHeader("Access-Control-Allow-Origin", "*");
         return output;
 
     } else if (action === 'submitReplay') {
@@ -544,9 +538,9 @@ function doPost(e) {
       }
       
       const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
-      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }));
-      output.setMimeType(ContentService.MimeType.JSON);
-      output.setHeader("Access-Control-Allow-Origin", "*");
+      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }))
+            .setMimeType(ContentService.MimeType.JSON)
+            .setHeader("Access-Control-Allow-Origin", "*");
       return output;
 
     } else {

@@ -4,7 +4,7 @@
  */
 
 // IMPORTANT: Replace this with your actual Web App URL from the Apps Script editor deployment.
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_E0nLuFmvt00b1BBgKBjcm_uH6mWWo26t77yFDIk-cq97hicPXoOUDIinnB-5CFaHRQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXKlxboqixhPxs27pOC27dNCh4BJ-fVAVl3r5QDrjJ8MtCh13YtQ/exec";
 
 /**
  * Fetches the top high scores from the server.
