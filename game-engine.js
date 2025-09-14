@@ -228,17 +228,26 @@ function sheetToObjects(sheet) {
  * Fetches all core game configuration data from their respective sheets.
  */
 function handleGetGameConfig() {
-    // NOTE: This assumes you have sheets named 'Archetypes', 'Skills', 'Traits', 'StatusEffects'
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'gameConfig_v2'; // Use a versioned key to easily invalidate if structure changes.
+
+    // 1. Try to get the config from the cache.
+    const cachedConfig = cache.get(cacheKey);
+    if (cachedConfig) {
+        console.log("DEBUG: Game config loaded from cache.");
+        return JSON.parse(cachedConfig);
+    }
+
+    // 2. If not in cache, fetch from sheets (the slow part).
+    console.log("DEBUG: Game config cache miss. Fetching from sheets...");
     const archetypes = sheetToObjects(getSheet('Archetypes'));
     const skills = sheetToObjects(getSheet('Skills'));
     const traits = sheetToObjects(getSheet('Traits'));
     const statusEffects = sheetToObjects(getSheet('StatusEffects'));
     const maps = sheetToObjects(getSheet('Maps'));
     const players = sheetToObjects(getSheet('Players'));
-    
-    // We only return the parts of the config that are stored in sheets.
-    // The client will be responsible for merging this with the static parts of its config.
-    return {
+
+    const gameConfig = {
         archetypes,
         skills,
         traits,
@@ -246,6 +255,13 @@ function handleGetGameConfig() {
         maps,
         players
     };
+
+    // 3. Store the newly fetched config in the cache for next time.
+    // Cache for 10 minutes (600 seconds). Adjust as needed.
+    cache.put(cacheKey, JSON.stringify(gameConfig), 600);
+    console.log("DEBUG: Game config stored in cache.");
+
+    return gameConfig;
 }
 
 /**

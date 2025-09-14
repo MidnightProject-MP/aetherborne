@@ -185,7 +185,6 @@
             // Convert to a POST request to avoid CORS preflight issues and match the server's doPost handler.
             const response = await fetch(scriptUrl, {
                 method: 'POST',
-                cache: 'no-cache',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                     action: 'getReplay',
