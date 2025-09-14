@@ -538,7 +538,8 @@ function doPost(e) {
       throw new Error(`Unknown action: '${action}'.`);
     }
   } catch (error) {
-    console.error('doPost Error:', error);
+    // Log the full stack trace for better debugging in Apps Script logs.
+    console.error('doPost Error:', error.stack);
     const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
     errorOutput.setMimeType(ContentService.MimeType.JSON);
     errorOutput.setHeader("Access-Control-Allow-Origin", "*");

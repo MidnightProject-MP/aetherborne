@@ -13,7 +13,6 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzg9Z9BCNtRcduDE5ZXK
 export async function getHighScores() {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
-        cache: 'no-cache',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'getHighScores', payload: {} })
     });
@@ -33,7 +32,6 @@ export async function getHighScores() {
 export async function submitScore(playerName, score) {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
-        cache: 'no-cache',
         // Using text/plain can often bypass complex CORS preflight checks.
         // The Apps Script backend can still parse the JSON string from the body.
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
