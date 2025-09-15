@@ -71,10 +71,7 @@ export default class EntityFactory {
             const ComponentClass = componentClasses[compConfig.class];
             if (ComponentClass) {
                 const args = this._getComponentArgs(compConfig, properties);
-                const component = new ComponentClass(entity, args);
-                // The addComponent method expects a single argument: the component instance itself.
-                // The original code was passing the component's name as a separate first argument,
-                // which caused the error.
+                const component = new ComponentClass(args);
                 entity.addComponent(component);
             } else {
                 console.error(`[EntityFactory] Unknown component class: ${compConfig.class}`);
@@ -101,7 +98,13 @@ export default class EntityFactory {
             case 'archetypeSkills':
                 return { skillIds: entityProperties.skills || [] };
             case 'entityProperties':
-                return entityProperties[compConfig.dataSourceKey] || compConfig.args || {};
+                // If a dataSourceKey is provided, use that sub-object from the entity's properties.
+                if (compConfig.dataSourceKey) {
+                    return entityProperties[compConfig.dataSourceKey] || compConfig.args || {};
+                }
+                // Otherwise, pass the entire properties object. This is useful for components like PortalComponent
+                // that read top-level properties like 'nextMapId'.
+                return entityProperties;
             default:
                 return compConfig.args || {};
         }
