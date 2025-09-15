@@ -111,10 +111,23 @@ class GameEngine {
     }
 }
 
+// --- NEW: SCRIPT-LEVEL CONSTANTS & SETUP ---
+// This pattern is more robust for standalone scripts and improves performance
+// by opening the spreadsheet only once.
+const SCRIPT_PROPERTIES = PropertiesService.getScriptProperties();
+
+// IMPORTANT: You must set this property in your Apps Script project settings.
+// Go to Project Settings > Script Properties and add a property named 'SHEET_ID'
+// with the ID of your Google Sheet.
+const SHEET_ID = SCRIPT_PROPERTIES.getProperty('SHEET_ID');
+const SPREADSHEET = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : null;
+
 // --- APPS SCRIPT DATABASE & LOGGING FUNCTIONS ---
 function getSheet(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  return ss.getSheetByName(sheetName);
+  if (!SPREADSHEET) {
+    throw new Error("Spreadsheet could not be opened. Ensure the 'SHEET_ID' script property is set correctly in Project Settings > Script Properties.");
+  }
+  return SPREADSHEET.getSheetByName(sheetName);
 }
 
 /**
@@ -607,7 +620,12 @@ function doPost(e) {
   } catch (error) {
     // Log the full stack trace for better debugging in Apps Script logs.
     console.error('doPost Error:', error.stack);
-    const errorOutput = ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }));
+    const errorPayload = {
+      status: 'error',
+      message: error.message || error.toString(), // Use .message for more specific errors
+      errorType: error.name || 'UnknownError'
+    };
+    const errorOutput = ContentService.createTextOutput(JSON.stringify(errorPayload));
     errorOutput.setMimeType(ContentService.MimeType.JSON);
     errorOutput.setHeader("Access-Control-Allow-Origin", "*");
     return errorOutput;
