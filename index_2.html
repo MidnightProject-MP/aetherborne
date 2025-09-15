@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aetherborne</title>
+    <link rel="stylesheet" href="./public/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="theme-vintage">
+
+    <!-- Screen: Splash -->
+    <div id="splash-screen" class="poc-section">
+        <div class="splash-overlay"></div>
+        <div class="splash-title-container">
+            <h1 class="splash-title-main">ASHES</h1>
+            <h2 class="splash-title-connector">OF THE</h2>
+            <h1 class="splash-title-main">WORLD</h1>
+        </div>
+        <div class="splash-menu">
+            <button id="continue-btn" class="btn btn-secondary">Continue</button>
+            <button id="start-btn" class="btn btn-primary btn-new-game">New Game</button>
+            <button id="high-scores-btn" class="btn btn-secondary">High Scores</button>
+        </div>
+    </div>
+
+    <!-- Screen: Character Creation -->
+    <div id="character-creation-poc" class="poc-section">
+        <div class="character-creation-content">
+            <div id="character-stats-container" class="stat-container2" style="visibility: hidden;">
+                <div class="stat-layout2">
+                    <div class="stat-circle2">
+                        <span class="ap-value2" id="pocApValue">--</span>
+                    </div>
+                    <div class="bar-stack2">
+                        <div class="stat-bar2 hp">
+                            <span class="value2" id="pocHpValue">-- / --</span>
+                        </div>
+                        <div class="stat-bar2 mp">
+                            <span class="value2" id="pocMpValue">-- / --</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <main class="character-display-main">
+                <div id="character-display">
+                    <img id="character-image" src="" alt="Selected Character" class="character-image-style">
+                </div>
+            </main>
+
+            <div class="character-footer">
+                <div class="archetype-selection-buttons">
+                    <button class="class-btn" id="btn-warrior" data-archetype="warrior">WARRIOR</button>
+                    <button class="class-btn" id="btn-rogue" data-archetype="rogue">ROGUE</button>
+                    <button class="class-btn" id="btn-magician" data-archetype="magician">MAGICIAN</button>
+                </div>
+                <button id="confirmCharacterButton" class="btn btn-primary" disabled>Confirm</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Screen: Main Game Map -->
+    <div id="map-flow-poc" class="poc-section">
+        <div id="hud-top">
+            <div id="player-hud-stats" class="stat-container2">
+                <div class="stat-layout2">
+                    <div class="stat-circle2" id="ap-bar">
+                        <span class="ap-value2" id="ap-bar-text">-/-</span>
+                    </div>
+                    <div class="bar-stack2">
+                        <div class="stat-bar2 hp" id="hp-bar">
+                            <div id="hp-bar-fill" class="stat-bar-fill"></div>
+                            <span class="value2" id="hp-bar-text">--/--</span>
+                        </div>
+                        <div class="stat-bar2 mp" id="mp-bar">
+                            <div id="mp-bar-fill" class="stat-bar-fill"></div>
+                            <span class="value2" id="mp-bar-text">--/--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="map-container">
+            <svg id="map" preserveAspectRatio="xMidYMid meet">
+                    <g id="map-layer"></g>
+                    <g id="fog-layer"></g>
+                    <g id="entity-layer"></g>
+                    <g id="entity-ui-layer"></g>
+                    <g id="range-preview-layer"></g>
+                    <g id="path-preview-layer"></g>
+                    <g id="effect-preview-layer"></g>
+            </svg>
+        </div>
+        <div id="hud-bottom">
+            <div id="skill-bar-container"><div id="skill-bar"></div></div>
+            <button id="end-turn-button" class="btn btn-primary">End Turn</button>
+        </div>
+    </div>
+
+    <!-- Add missing elements for orchestrator/game startup -->
+    <div id="game-map" style="display:none"></div>
+
+    <script type="module" src="./public/js/main.js"></script>
+
+</body>
+</html>

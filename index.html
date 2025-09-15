@@ -3,107 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aetherborne</title>
-    <link rel="stylesheet" href="./public/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <title>Serverless Contact Form</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h3 {
+            margin-top: 0;
+        }
+        form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        form input[type="text"],
+        form input[type="email"],
+        form input[type="tel"],
+        form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Important */
+        }
+        form button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        form button:hover {
+            background-color: #0056b3;
+        }
+        form button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #form-status {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+            word-break: break-word;
+        }
+        th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
 </head>
-<body class="theme-vintage">
+<body>
 
-    <!-- Screen: Splash -->
-    <div id="splash-screen" class="poc-section">
-        <div class="splash-overlay"></div>
-        <div class="splash-title-container">
-            <h1 class="splash-title-main">ASHES</h1>
-            <h2 class="splash-title-connector">OF THE</h2>
-            <h1 class="splash-title-main">WORLD</h1>
-        </div>
-        <div class="splash-menu">
-            <button id="continue-btn" class="btn btn-secondary">Continue</button>
-            <button id="start-btn" class="btn btn-primary btn-new-game">New Game</button>
-            <button id="high-scores-btn" class="btn btn-secondary">High Scores</button>
-        </div>
-    </div>
+    <div class="container">
+        <form id="contact-form">
+            <h3>Contact Us</h3>
+            <p>Submit your details and we'll get back to you.</p>
 
-    <!-- Screen: Character Creation -->
-    <div id="character-creation-poc" class="poc-section">
-        <div class="character-creation-content">
-            <div id="character-stats-container" class="stat-container2" style="visibility: hidden;">
-                <div class="stat-layout2">
-                    <div class="stat-circle2">
-                        <span class="ap-value2" id="pocApValue">--</span>
-                    </div>
-                    <div class="bar-stack2">
-                        <div class="stat-bar2 hp">
-                            <span class="value2" id="pocHpValue">-- / --</span>
-                        </div>
-                        <div class="stat-bar2 mp">
-                            <span class="value2" id="pocMpValue">-- / --</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" required>
 
-            <main class="character-display-main">
-                <div id="character-display">
-                    <img id="character-image" src="" alt="Selected Character" class="character-image-style">
-                </div>
-            </main>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+            
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone">
 
-            <div class="character-footer">
-                <div class="archetype-selection-buttons">
-                    <button class="class-btn" id="btn-warrior" data-archetype="warrior">WARRIOR</button>
-                    <button class="class-btn" id="btn-rogue" data-archetype="rogue">ROGUE</button>
-                    <button class="class-btn" id="btn-magician" data-archetype="magician">MAGICIAN</button>
-                </div>
-                <button id="confirmCharacterButton" class="btn btn-primary" disabled>Confirm</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Screen: Main Game Map -->
-    <div id="map-flow-poc" class="poc-section">
-        <div id="hud-top">
-            <div id="player-hud-stats" class="stat-container2">
-                <div class="stat-layout2">
-                    <div class="stat-circle2" id="ap-bar">
-                        <span class="ap-value2" id="ap-bar-text">-/-</span>
-                    </div>
-                    <div class="bar-stack2">
-                        <div class="stat-bar2 hp" id="hp-bar">
-                            <div id="hp-bar-fill" class="stat-bar-fill"></div>
-                            <span class="value2" id="hp-bar-text">--/--</span>
-                        </div>
-                        <div class="stat-bar2 mp" id="mp-bar">
-                            <div id="mp-bar-fill" class="stat-bar-fill"></div>
-                            <span class="value2" id="mp-bar-text">--/--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="map-container">
-            <svg id="map" preserveAspectRatio="xMidYMid meet">
-                    <g id="map-layer"></g>
-                    <g id="fog-layer"></g>
-                    <g id="entity-layer"></g>
-                    <g id="entity-ui-layer"></g>
-                    <g id="range-preview-layer"></g>
-                    <g id="path-preview-layer"></g>
-                    <g id="effect-preview-layer"></g>
-            </svg>
-        </div>
-        <div id="hud-bottom">
-            <div id="skill-bar-container"><div id="skill-bar"></div></div>
-            <button id="end-turn-button" class="btn btn-primary">End Turn</button>
+            <label for="service">Service of Interest</label>
+            <input type="text" id="service" name="service">
+            
+            <label for="notes">Any Notes</label>
+            <textarea id="notes" name="notes" rows="4"></textarea>
+
+            <button type="submit">Submit Request</button>
+            
+            <div id="form-status"></div>
+        </form>
+
+        <hr>
+
+        <h3>Submitted Responses</h3>
+        <div id="data-grid-container">
+            <p>Loading data...</p>
         </div>
     </div>
 
-    <!-- Add missing elements for orchestrator/game startup -->
-    <div id="game-map" style="display:none"></div>
+    <script>
+        // --- PASTE YOUR WEB APP URL HERE ---
+        const webAppUrl = 'https://script.google.com/macros/s/AKfycbx4Om4Tsh6bgs4aLUQnjnBq1BKhysVAHmFaiF8C8eFatDHIqTLoEPahd4S2uRL6kR_3fg/exec';
 
-    <script type="module" src="./public/js/main.js"></script>
+        // --- FORM SUBMISSION LOGIC ---
+        const form = document.getElementById('contact-form');
+        const formStatus = document.getElementById('form-status');
 
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const submitButton = form.querySelector('button');
+            submitButton.disabled = true;
+            submitButton.innerText = 'Submitting...';
+            formStatus.innerText = '';
+
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // We now wrap the form data in a request object with an 'action'
+            const requestBody = {
+                action: 'write',
+                data: data
+            };
+
+            fetch(webAppUrl, {
+                method: 'POST',
+                body: JSON.stringify(requestBody)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.result === 'success') {
+                    formStatus.innerText = 'Thank you! Your message has been sent.';
+                    formStatus.style.color = 'green';
+                    form.reset();
+                    loadGridData(); // Auto-refresh the grid
+                } else {
+                    formStatus.innerText = `An error occurred: ${result.error}`;
+                    formStatus.style.color = 'red';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                formStatus.innerText = 'A network error occurred. Please try again.';
+                formStatus.style.color = 'red';
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.innerText = 'Submit Request';
+            });
+        });
+
+        // --- DATA GRID LOADING LOGIC ---
+        function loadGridData() {
+            const container = document.getElementById('data-grid-container');
+            container.innerHTML = '<p>Loading data...</p>';
+
+            // We now use POST and specify the 'read' action
+            fetch(webAppUrl, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'read' })
+            }) 
+            .then(response => response.json())
+            .then(result => {
+                if (result.result !== 'success' || result.error) {
+                    container.innerHTML = `<p>Error loading data: ${result.error}</p>`;
+                    return;
+                }
+
+                const data = result.data; // The data is now in a 'data' property
+                if (data.length === 0) {
+                    container.innerHTML = '<p>No responses yet.</p>';
+                    return;
+                }
+
+                // The rest of this function is the same as before
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                const headers = Object.keys(data[0]);
+                headers.forEach(headerText => {
+                    const th = document.createElement('th');
+                    th.innerText = headerText.charAt(0).toUpperCase() + headerText.slice(1);
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                data.forEach(rowData => {
+                    const row = document.createElement('tr');
+                    headers.forEach(header => {
+                        const cell = document.createElement('td');
+                        cell.innerText = rowData[header];
+                        row.appendChild(cell);
+                    });
+                    tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+
+                container.innerHTML = '';
+                container.appendChild(table);
+            })
+            .catch(error => {
+                console.error('Failed to load grid data:', error);
+                container.innerHTML = '<p>Failed to load data. Please try again later.</p>';
+            });
+        }
+
+        // Load the grid for the first time when the page loads
+        document.addEventListener('DOMContentLoaded', loadGridData);
+
+    </script>
 </body>
 </html>
