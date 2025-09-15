@@ -3,256 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Replay Viewer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a202c;
-            color: #e2e8f0;
-        }
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(11, 1fr);
-            grid-template-rows: repeat(13, 1fr);
-            border: 2px solid #4a5568;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .tile {
-            width: 30px;
-            height: 30px;
-            background-color: #4a5568;
-            border: 1px solid #2d3748;
-        }
-        .tile.floor { background-color: #a0aec0; }
-        .tile.wall { background-color: #2d3748; }
-        .tile.player { background-color: #48bb78; }
-        .tile.enemy { background-color: #f56565; }
-        .button {
-            @apply px-4 py-2 rounded-lg font-semibold text-white transition-colors duration-200;
-        }
-    </style>
+    <title>Aetherborne Replay Viewer</title>
+    <!-- Using the main style.css for consistency -->
+    <link rel="stylesheet" href="./public/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body class="flex items-center justify-center min-h-screen">
+<body class="theme-vintage">
 
-    <div class="container mx-auto p-4 max-w-2xl">
-        <h1 class="text-3xl font-bold mb-4 text-center">AI Agent Replay Viewer</h1>
-        <p class="text-sm text-center mb-6 text-gray-400">
-            Enter a session ID from your AI's sheet to watch the replay.
-        </p>
+    <div id="replay-viewer-poc" class="poc-section">
+        <h1 class="text-3xl font-bold mb-4 text-center">Game Replay Viewer</h1>
+        
+        <!-- Status Message -->
+        <div id="status-message" class="status-message" style="display: none;"></div>
 
-        <div class="flex flex-col md:flex-row gap-6">
-            <div class="flex-1 flex flex-col items-center">
-                <div id="game-container" class="game-grid shadow-lg mb-4"></div>
-                <div class="flex flex-col items-center gap-4">
-                    <input type="text" id="sessionIdInput" placeholder="Enter Session ID from Sheet"
-                           class="w-full px-4 py-2 rounded-lg bg-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button id="loadReplayButton" class="button bg-blue-500 hover:bg-blue-600 w-full">Load Replay</button>
-                    <div id="replay-status" class="text-sm"></div>
-                </div>
+        <!-- Map Container -->
+        <div id="map-container" class="map-container-replay">
+            <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+
+        <!-- Replay Controls -->
+        <div class="replay-controls">
+            <div id="turn-counter" class="turn-counter">Turn: 0 / 0</div>
+            <div class="control-group">
+                <button id="play-pause-btn" class="btn btn-primary">Play</button>
+                <button id="step-forward-btn" class="btn btn-secondary">Step Forward</button>
             </div>
-
-            <div class="flex-1">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-inner">
-                    <h2 class="text-2xl font-semibold mb-2">Game State</h2>
-                    <pre id="game-state-display" class="text-xs text-green-300"></pre>
-                </div>
+            <div class="speed-control">
+                <label for="speed-select">Speed:</label>
+                <select id="speed-select" class="select-dropdown">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                </select>
             </div>
         </div>
     </div>
 
-    <script>
-        // Core game engine - identical to the server version
-        class GameEngine {
-            constructor(seed, mapTemplate, initialState = null) {
-                this.seed = seed;
-                this.mapTemplate = mapTemplate;
-                this.rng = this.createSeededRNG(this.seed);
-                this.gameState = initialState || {
-                    player: {
-                        x: 0,
-                        y: 0,
-                        health: 100,
-                        attack_power: 10,
-                        level: 1,
-                        xp: 0
-                    },
-                    enemies: []
-                };
-                if (!initialState) {
-                    this.initializeGameState();
-                }
-            }
-            
-            createSeededRNG(seed) {
-                let h = 1779033703 ^ seed.length;
-                for (let i = 0; i < seed.length; i++) {
-                    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-                    h = h << 13 | h >>> 19;
-                }
-                return function() {
-                    h = Math.imul(h ^ h >>> 16, 2246822507);
-                    h = Math.imul(h ^ h >>> 13, 3266489909);
-                    return (h ^= h >>> 16) >>> 0;
-                };
-            }
-            
-            initializeGameState() {
-                this.gameState.player.x = 0;
-                this.gameState.player.y = 0;
-                
-                for (let y = 0; y < this.mapTemplate.height; y++) {
-                    for (let x = 0; x < this.mapTemplate.width; x++) {
-                        if (this.mapTemplate.tiles[y][x] === 'floor') {
-                            if (this.rng() % 100 < 10) {
-                                this.gameState.enemies.push({
-                                    x: x,
-                                    y: y,
-                                    health: 20,
-                                    attack_power: 5
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            
-            isValidMove(x, y) {
-                if (x < 0 || x >= this.mapTemplate.width || y < 0 || y >= this.mapTemplate.height) {
-                    return false;
-                }
-                return this.mapTemplate.tiles[y][x] === 'floor';
-            }
-            
-            executeMove(move) {
-                const nextState = JSON.parse(JSON.stringify(this.gameState));
-                
-                if (!this.isValidMove(move.x, move.y)) {
-                    return nextState;
-                }
-                
-                nextState.player.x = move.x;
-                nextState.player.y = move.y;
-                
-                const enemiesAfterMove = [];
-                for (const enemy of nextState.enemies) {
-                    if (enemy.x === move.x && enemy.y === move.y) {
-                        enemy.health -= nextState.player.attack_power;
-                        nextState.player.health -= enemy.attack_power;
-                        if (enemy.health > 0) {
-                            enemiesAfterMove.push(enemy);
-                        } else {
-                            nextState.player.xp += 10;
-                        }
-                    } else {
-                        enemiesAfterMove.push(enemy);
-                    }
-                }
-                nextState.enemies = enemiesAfterMove;
-                
-                if (nextState.player.xp >= nextState.player.level * 20) {
-                    nextState.player.level++;
-                    nextState.player.health += 20;
-                    nextState.player.attack_power += 2;
-                }
-                
-                this.gameState = nextState;
-                return this.gameState;
-            }
-            
-            playGame(replay) {
-                for (const move of replay) {
-                    this.executeMove(move);
-                }
-                return this.gameState;
-            }
-        }
-        
-        // --- Client-Side Replay Viewer Logic ---
-        const gameContainer = document.getElementById('game-container');
-        const gameStateDisplay = document.getElementById('game-state-display');
-        const sessionIdInput = document.getElementById('sessionIdInput');
-        const loadReplayButton = document.getElementById('loadReplayButton');
-        const replayStatus = document.getElementById('replay-status');
-        
-        async function fetchReplay(sessionId) {
-            // IMPORTANT: Paste your Apps Script web app URL here
-            const scriptUrl = "https://script.google.com/macros/s/AKfycbw-yI5b9gLq0RMKy9-eKiktBbrUBzizi1CZg0-vBhzwsRhmKrEr9xIXZ1T3H19daaXLEQ/exec";
-            
-            replayStatus.textContent = "Loading replay...";
-            // Convert to a POST request to avoid CORS preflight issues and match the server's doPost handler.
-            const response = await fetch(scriptUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    action: 'getReplay',
-                    payload: { sessionId }
-                })
-            });
-            
-            if (!response.ok) {
-                replayStatus.textContent = `Error: Could not fetch replay. Status: ${response.statusText}`;
-                return null;
-            }
-            
-            const data = await response.json();
-            if (data.status === 'error') {
-                replayStatus.textContent = data.message;
-                return null;
-            }
-            return data;
-        }
-        
-        function renderGame(game) {
-            gameContainer.innerHTML = '';
-            for (let y = 0; y < game.mapTemplate.height; y++) {
-                for (let x = 0; x < game.mapTemplate.width; x++) {
-                    const tile = document.createElement('div');
-                    tile.className = `tile ${game.mapTemplate.tiles[y][x]}`;
-                    
-                    if (x === game.gameState.player.x && y === game.gameState.player.y) {
-                        tile.classList.add('player');
-                    }
-                    if (game.gameState.enemies.some(e => e.x === x && e.y === y)) {
-                        tile.classList.add('enemy');
-                    }
-                    gameContainer.appendChild(tile);
-                }
-            }
-        }
-        
-        function updateGameStateDisplay(gameState) {
-            gameStateDisplay.textContent = JSON.stringify(gameState, null, 2);
-        }
-        
-        async function playReplay(replayData) {
-            const { replayLog, seed, mapTemplate } = replayData;
-            
-            const game = new GameEngine(seed, mapTemplate);
-            
-            for (const move of replayLog) {
-                game.executeMove(move);
-                renderGame(game);
-                updateGameStateDisplay(game.gameState);
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-            replayStatus.textContent = "Replay finished.";
-        }
-        
-        loadReplayButton.addEventListener('click', async () => {
-            const sessionId = sessionIdInput.value.trim();
-            if (sessionId) {
-                const replay = await fetchReplay(sessionId);
-                if (replay) {
-                    await playReplay(replay);
-                }
-            } else {
-                replayStatus.textContent = "Please enter a Session ID.";
-            }
+    <script type="module">
+        import { EventBus } from './public/js/eventBus.js';
+        import { ReplayOrchestrator } from './public/js/ReplayOrchestrator.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const eventBus = new EventBus();
+            const orchestrator = new ReplayOrchestrator(eventBus);
+            orchestrator.start();
         });
-        
     </script>
+
 </body>
 </html>
