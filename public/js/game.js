@@ -722,16 +722,8 @@ export default class Game {
      * @returns {Object} A JSON-friendly object representing the game state.
      */
     getSerializableState() {
-        const playerStats = this.player.getComponent('stats');
-        const playerState = {
-            x: this.player.hex.col,
-            y: this.player.hex.row,
-            health: playerStats.hp,
-            attack_power: playerStats.attackPower,
-            level: playerStats.level,
-            xp: playerStats.xp
-        };
-
+        // Get the full, savable state of the player's stats.
+        const playerState = this.player.getComponent('stats').getSavableStats();
         const enemies = this.gameMap.getEnemies().map(enemy => {
             const enemyStats = enemy.getComponent('stats');
             return {

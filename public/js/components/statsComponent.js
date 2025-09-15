@@ -44,6 +44,10 @@ class StatsComponent {
 
         // Traits can be passed in config too, e.g. from character creation or archetype
         this.traits = [...(config.traits || [])];
+
+        // --- NEW: Progression Stats ---
+        this.xp = config.xp || 0;
+        this.level = config.level || 1;
     }
 
     /**
@@ -165,7 +169,8 @@ class StatsComponent {
             // include other stats like attackPower, defense etc. if they can change
             attackPower: this.attackPower,
             defense: this.defense,
-            // ...
+            xp: this.xp,
+            level: this.level
         };
     }
 

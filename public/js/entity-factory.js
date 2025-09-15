@@ -72,7 +72,10 @@ export default class EntityFactory {
             if (ComponentClass) {
                 const args = this._getComponentArgs(compConfig, properties);
                 const component = new ComponentClass(entity, args);
-                entity.addComponent(compConfig.name, component);
+                // The addComponent method expects a single argument: the component instance itself.
+                // The original code was passing the component's name as a separate first argument,
+                // which caused the error.
+                entity.addComponent(component);
             } else {
                 console.error(`[EntityFactory] Unknown component class: ${compConfig.class}`);
             }
@@ -92,7 +95,9 @@ export default class EntityFactory {
 
         switch (compConfig.argsSource) {
             case 'archetypeBaseStats':
-                return entityProperties.baseStats || {};
+                // Combine baseStats with top-level properties like traits
+                // so the StatsComponent receives all necessary data.
+                return { ...(entityProperties.baseStats || {}), traits: entityProperties.traits || [] };
             case 'archetypeSkills':
                 return { skillIds: entityProperties.skills || [] };
             case 'entityProperties':

@@ -310,9 +310,30 @@ function handleGetPlayerData(payload) {
 
     // Combine data to match the structure from CharacterCreator
     const finalCharacterData = { ...playerData };
-    finalCharacterData.baseStats = archetype.basestats || {}; // Use normalized key
-    finalCharacterData.skills = Array.isArray(archetype.skills) ? [...archetype.skills] : []; // Defensively handle skills
 
+    // --- NEW: Prioritize saved stats over archetype defaults ---
+    // If the player has a saved stats object, use it. Otherwise, fall back to the archetype's base stats.
+    // The 'stats' property is created by sheetToObjects from a 'Stats_JSON' column.
+    if (playerData.stats && Object.keys(playerData.stats).length > 0) {
+        console.log(`DEBUG: Loading player from saved stats for player '${playerId}'.`);
+        finalCharacterData.baseStats = playerData.stats;
+    } else {
+        console.log(`DEBUG: Initializing player from archetype stats for player '${playerId}'.`);
+        finalCharacterData.baseStats = archetype.basestats || {}; // Use normalized key
+    }
+    finalCharacterData.skills = Array.isArray(archetype.skills) ? [...archetype.skills] : [];
+
+    // Hydrate trait IDs into full trait objects to match CharacterCreator's output format.
+    // This makes the server's data packet complete and consistent.
+    if (Array.isArray(playerData.traits)) {
+        finalCharacterData.traits = playerData.traits.map(traitId => {
+            const traitData = gameConfig.traits[traitId];
+            // Return the full object, including its ID, which is the key in the config.
+            return traitData ? { id: traitId, ...traitData } : null;
+        }).filter(Boolean); // Filter out any nulls if a trait ID was invalid.
+    } else {
+        finalCharacterData.traits = [];
+    }
     return finalCharacterData;
 }
 
@@ -510,10 +531,26 @@ function handleUpdatePlayerState(payload) {
         throw new Error(`Player with ID '${playerId}' not found for update.`);
     }
 
-    // This is a simplified update. It only updates the CurrentMapID.
-    // A more complex implementation could update stats, traits, etc.
-    // Note: The row index is 1-based for sheets, and we need to account for the header row.
-    playersSheet.getRange(playerRowIndex + 1, 4).setValue(finalState.currentMapId);
+    // --- Enhanced Update Logic ---
+    // This now updates multiple columns for the player: CurrentMapID and Stats_JSON.
+    // We assume the sheet layout is: A:PlayerID, B:Name, C:ArchetypeID, D:CurrentMapID, E:Stats_JSON
+    const playerSheetRow = playerRowIndex + 1; // Sheet rows are 1-based
+    const statsToSave = finalState.player || null; // The client sends stats under the 'player' key
+
+    if (!statsToSave) {
+        throw new Error(`'finalState' payload for player '${playerId}' is missing the 'player' stats object.`);
+    }
+
+    // Prepare the values to be written to the sheet.
+    const newMapId = finalState.currentMapId || data[playerRowIndex][3]; // Use existing if not provided
+    const statsJson = JSON.stringify(statsToSave);
+
+    // Update the CurrentMapID (column 4) and Stats_JSON (column 5) in a single operation.
+    // This is more efficient than separate 'setValue' calls.
+    const updateRange = playersSheet.getRange(playerSheetRow, 4, 1, 2); // (row, start_col, num_rows, num_cols)
+    updateRange.setValues([[newMapId, statsJson]]);
+
+    console.log(`DEBUG: Updated player '${playerId}' with MapID '${newMapId}' and stats: ${statsJson}`);
 
     return { status: 'success', message: `Player ${playerId} state updated.`};
 }
