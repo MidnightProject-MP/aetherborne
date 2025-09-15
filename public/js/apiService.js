@@ -4,7 +4,7 @@
  */
 
 // IMPORTANT: Replace this with your actual Web App URL from the Apps Script editor deployment.
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwWU1hHm7NkHEQCTg5SQoyJzldcANRW8ZK5ZL1p6DCjoA3TBF9rlHrdJBq_nunHeN-9g/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0WWjZMOl8HETmsarK7jvPGlPayfNUSH0fnJBXEfSY_CPxldeLhevQa3gg27-Ro1Bhkw/exec";
 
 /**
  * A centralized function to handle all POST requests to the Apps Script backend.

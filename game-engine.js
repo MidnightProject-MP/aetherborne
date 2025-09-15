@@ -226,8 +226,10 @@ function sheetToObjects(sheet) {
                     value = JSON.parse(value);
                 } catch (e) {
                     console.error(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
-                    // Smart default: if the header implies an array, default to an empty array.
-                    value = header.toLowerCase().includes("skills") || header.toLowerCase().includes("traits") ? [] : {};
+                    // Smart default: if the header implies a list/array, default to an empty array.
+                    const lowerHeader = header.toLowerCase();
+                    const isArrayLike = lowerHeader.includes("skills") || lowerHeader.includes("traits") || lowerHeader.includes("components");
+                    value = isArrayLike ? [] : {};
                 }
             }
             entry[key] = value;
@@ -366,11 +368,10 @@ function runAiAgent() {
  */
 function doGet(e) {
   // doGet is no longer used for primary API actions.
-  // All actions are now handled via doPost to simplify CORS management.
-  // This can be used for a simple health check if needed.
+  // All API actions are handled via doPost to allow for CORS headers.
+  // This function serves as a simple health check when visiting the URL in a browser.
   return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'API is running. Use POST for actions.' }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -560,7 +561,6 @@ function handleSubmitReplay(payload) {
 
 function doOptions(e) {
   return ContentService.createTextOutput()
-    .setHeader("Access-Control-Allow-Origin", "*")
     .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     .setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
@@ -582,8 +582,7 @@ function doPost(e) {
     // Helper to create a standard JSON response
     const createJsonResponse = (data) => {
       return ContentService.createTextOutput(JSON.stringify(data))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader("Access-Control-Allow-Origin", "*");
+        .setMimeType(ContentService.MimeType.JSON);
     };
 
     // Action router
@@ -627,7 +626,6 @@ function doPost(e) {
     };
     const errorOutput = ContentService.createTextOutput(JSON.stringify(errorPayload));
     errorOutput.setMimeType(ContentService.MimeType.JSON);
-    errorOutput.setHeader("Access-Control-Allow-Origin", "*");
     return errorOutput;
   } finally {
     lock.releaseLock();
