@@ -55,9 +55,19 @@ export class Orchestrator {
         // If the dungeon was completed, save the player's state.
         if (payload.message === "Dungeon Completed!") {
             try {
-                const finalState = this.gameInstance.getSerializableState();
-                await updatePlayerState(payload.characterData.playerid, { ...finalState, currentMapId: payload.characterData.currentMapId });
-                console.log(`[Orchestrator] Player state for ${playerName} saved successfully.`);
+                // When a dungeon is completed, we need to save the player's progress and
+                // set their next location to a hub area, not the map they just left.
+                const finalPlayerStats = this.gameInstance.player.getComponent('stats').getSavableStats();
+                const nextMap = this.config.dungeonCompleteTargetMapId || this.config.prologueStartMapId;
+
+                // Construct the state object to save. We only need the player's data and their next map.
+                const stateToSave = {
+                    player: finalPlayerStats,
+                    currentMapId: nextMap
+                };
+
+                await updatePlayerState(payload.characterData.playerid, stateToSave);
+                console.log(`[Orchestrator] Player state for ${playerName} saved successfully. Next map is now: ${nextMap}`);
             } catch (error) {
                 console.error("[Orchestrator] Failed to save player state:", error);
             }

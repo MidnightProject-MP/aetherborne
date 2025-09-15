@@ -18,14 +18,16 @@ class PortalComponent extends InteractableComponent {
      * @param {Entity} interactingEntity - The entity interacting with the portal.
      */
     interact(interactingEntity) {
-        if (this.nextMapId) {
-            console.log(`[PortalComponent] ${interactingEntity.name} enters portal to ${this.nextMapId}.`);
-            this.entity.game.eventBus.publish('combatLog', { message: `${interactingEntity.name} steps into the portal...`, type: 'event' });
-            this.entity.game.eventBus.publish('mapTransitionRequest', { nextMapId: this.nextMapId, entityId: interactingEntity.id });
-        } else {
-            console.warn(`[PortalComponent] Portal ${this.entity.name} has no nextMapId configured.`);
-            this.entity.game.eventBus.publish('combatLog', { message: `The portal shimmers, but leads nowhere.`, type: 'warning' });
-        }
+        // The logic to handle the transition (or end the game) is in the Game class.
+        // This component's only job is to publish the request.
+        const message = this.nextMapId
+            ? `${interactingEntity.name} steps into the portal...`
+            : `${interactingEntity.name} steps through the final portal, completing the dungeon!`;
+
+        this.entity.game.eventBus.publish('combatLog', { message, type: 'event' });
+
+        // Always publish the request. The Game class will handle a null/undefined nextMapId.
+        this.entity.game.eventBus.publish('mapTransitionRequest', { nextMapId: this.nextMapId, entityId: interactingEntity.id });
     }
 
     destroy() {
