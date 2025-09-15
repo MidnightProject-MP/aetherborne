@@ -156,7 +156,9 @@ export default class Game {
             this.startNewRound();
         });
         this.eventBus.subscribe('moveCompleted', ({ entityId, finalHex }) => {
-            this._checkTileForAutomaticInteractions(this.getEntity(entityId));
+            // Pass the finalHex from the event to ensure we check the correct tile,
+            // avoiding any race conditions with entity property updates.
+            this._checkTileForAutomaticInteractions(this.getEntity(entityId), finalHex);
         });
     }
 
@@ -610,9 +612,13 @@ export default class Game {
             await movePromise;
         } else {
             // Fallback if no MovementComponent, just update hex directly
+            const oldHex = actor.hex;
             actor.hex = targetTile;
             actor.getComponent('renderable')?.updatePosition();
             if (actor.type === 'player') stats.spendActionPoints(moveCost);
+            // Manually publish moveCompleted since no animation promise was awaited.
+            // This is crucial for triggering automatic interactions like traps or portals.
+            this.eventBus.publish('moveCompleted', { entityId: actor.id, finalHex: targetTile, initialHex: oldHex });
         }
         
         return true;
@@ -625,9 +631,8 @@ export default class Game {
      * @param {Entity} entity - The entity that just moved.
      * @private
      */
-    _checkTileForAutomaticInteractions(entity) {
-        if (!entity) return;
-        const tile = entity.hex;
+    _checkTileForAutomaticInteractions(entity, tile) {
+        if (!entity || !tile) return;
         const entitiesOnTile = this.gameMap.getEntitiesAt(tile.q, tile.r);
 
         for (const otherEntity of entitiesOnTile) {
