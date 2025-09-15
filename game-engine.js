@@ -384,6 +384,48 @@ function handleGetReplay(payload) {
 }
 
 /**
+ * Fetches and returns all players from the 'Players' sheet.
+ */
+function handleGetPlayers() {
+    const sheet = getSheet('Players');
+    if (!sheet) return [];
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return []; // No data besides header
+
+    const headers = data.shift(); // Get and remove header row
+
+    const players = data.map(row => {
+        if (!row[0]) return null; // Skip rows without a PlayerID
+        let obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = row[index];
+        });
+        return obj;
+    }).filter(Boolean); // Remove nulls
+
+    return players;
+}
+
+/**
+ * Adds a new player to the 'Players' sheet.
+ */
+function handleAddPlayer(payload) {
+    const { playerId, name, archetypeId, currentMapId } = payload;
+    if (!playerId || !name || !archetypeId || !currentMapId) {
+        throw new Error("Payload for 'addPlayer' must include 'playerId', 'name', 'archetypeId', and 'currentMapId'.");
+    }
+
+    const sheet = getSheet('Players');
+    if (!sheet) throw new Error("Critical Error: Sheet 'Players' not found.");
+
+    const idColumnValues = sheet.getRange(2, 1, sheet.getLastRow(), 1).getValues();
+    if (idColumnValues.flat().some(id => id === playerId)) {
+        throw new Error(`Player with ID '${playerId}' already exists.`);
+    }
+    sheet.appendRow([playerId, name, archetypeId, currentMapId]);
+    return { status: 'success', message: `Player '${name}' added successfully.` };
+}
+/**
  * Handles a test POST request.
  */
 function handleTestPost() {
@@ -541,6 +583,10 @@ function doPost(e) {
         return createJsonResponse(handleGetPlayerData(payload));
       case 'getReplay':
         return createJsonResponse(handleGetReplay(payload));
+      case 'getPlayers':
+        return createJsonResponse(handleGetPlayers());
+      case 'addPlayer':
+        return createJsonResponse(handleAddPlayer(payload));
       case 'testPost':
         return createJsonResponse(handleTestPost());
       case 'submitScore':

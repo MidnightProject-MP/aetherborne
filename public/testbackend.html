@@ -56,6 +56,33 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+        #test-container button {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        #test-container button:hover {
+            background-color: #e0a800;
+        }
+        #test-container button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Allows long lines to wrap */
+            word-wrap: break-word; /* Breaks long words/strings */
+            max-height: 500px;
+            overflow-y: auto;
+        }
         #form-status {
             margin-top: 15px;
             font-weight: bold;
@@ -83,44 +110,51 @@
 <body>
 
     <div class="container">
-        <form id="contact-form">
-            <h3>Contact Us</h3>
-            <p>Submit your details and we'll get back to you.</p>
+        <form id="player-form">
+            <h3>Add New Player</h3>
+            <p>Add a new player to the 'Players' sheet.</p>
 
-            <label for="name">Full Name</label>
-            <input type="text" id="name" name="name" required>
+            <label for="playerId">Player ID</label>
+            <input type="text" id="playerId" name="playerId" required placeholder="e.g., Player3">
 
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required>
-            
-            <label for="phone">Phone</label>
-            <input type="tel" id="phone" name="phone">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required placeholder="e.g., Arin">
 
-            <label for="service">Service of Interest</label>
-            <input type="text" id="service" name="service">
-            
-            <label for="notes">Any Notes</label>
-            <textarea id="notes" name="notes" rows="4"></textarea>
+            <label for="archetypeId">Archetype ID</label>
+            <input type="text" id="archetypeId" name="archetypeId" required placeholder="e.g., warrior">
+
+            <label for="currentMapId">Current Map ID</label>
+            <input type="text" id="currentMapId" name="currentMapId" required placeholder="e.g., map_01_forest">
 
             <button type="submit">Submit Request</button>
             
             <div id="form-status"></div>
         </form>
 
-        <hr>
+        <hr style="margin-top: 40px; margin-bottom: 40px;">
 
-        <h3>Submitted Responses</h3>
+        <h3>Current Players</h3>
         <div id="data-grid-container">
             <p>Loading data...</p>
+        </div>
+
+        <hr style="margin-top: 40px; margin-bottom: 40px;">
+
+        <h3>Test API Endpoints</h3>
+        <p>Use this section to test specific API actions directly and see the raw server response.</p>
+        <div id="test-container">
+            <button id="test-config-btn">Test 'getGameConfig'</button>
+            <h4>Test Result:</h4>
+            <pre id="test-output">Click the button to test the endpoint.</pre>
         </div>
     </div>
 
     <script>
         // --- PASTE YOUR WEB APP URL HERE ---
-        const webAppUrl = 'https://script.google.com/macros/s/AKfycbx4Om4Tsh6bgs4aLUQnjnBq1BKhysVAHmFaiF8C8eFatDHIqTLoEPahd4S2uRL6kR_3fg/exec';
+        const webAppUrl = 'https://script.google.com/macros/s/AKfycbxJsUM3PGmKS94yRYGQYiYQGPl8EQGzCyBCY6xGF7xOTUSMaa-SiU1zPQNso2988-d7/exec';
 
         // --- FORM SUBMISSION LOGIC ---
-        const form = document.getElementById('contact-form');
+        const form = document.getElementById('player-form');
         const formStatus = document.getElementById('form-status');
 
         form.addEventListener('submit', function(event) {
@@ -131,33 +165,34 @@
             formStatus.innerText = '';
 
             const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
+            const payload = Object.fromEntries(formData.entries());
 
-            // We now wrap the form data in a request object with an 'action'
+            // Use the action/payload structure expected by game-engine.js
             const requestBody = {
-                action: 'write',
-                data: data
+                action: 'addPlayer',
+                payload: payload
             };
 
             fetch(webAppUrl, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(requestBody)
             })
             .then(response => response.json())
             .then(result => {
-                if (result.result === 'success') {
-                    formStatus.innerText = 'Thank you! Your message has been sent.';
+                if (result.status === 'success') {
+                    formStatus.innerText = result.message;
                     formStatus.style.color = 'green';
                     form.reset();
                     loadGridData(); // Auto-refresh the grid
                 } else {
-                    formStatus.innerText = `An error occurred: ${result.error}`;
+                    formStatus.innerText = `An error occurred: ${result.message}`;
                     formStatus.style.color = 'red';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                formStatus.innerText = 'A network error occurred. Please try again.';
+                formStatus.innerText = `A network error occurred: ${error.toString()}`;
                 formStatus.style.color = 'red';
             })
             .finally(() => {
@@ -171,21 +206,22 @@
             const container = document.getElementById('data-grid-container');
             container.innerHTML = '<p>Loading data...</p>';
 
-            // We now use POST and specify the 'read' action
+            // Use POST and specify the 'getPlayers' action
             fetch(webAppUrl, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'read' })
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getPlayers' })
             }) 
             .then(response => response.json())
-            .then(result => {
-                if (result.result !== 'success' || result.error) {
-                    container.innerHTML = `<p>Error loading data: ${result.error}</p>`;
+            .then(data => {
+                if (!Array.isArray(data)) {
+                    // Handle cases where the server returns an error object
+                    container.innerHTML = `<p>Error loading data: ${data.message || 'Invalid response from server.'}</p>`;
                     return;
                 }
 
-                const data = result.data; // The data is now in a 'data' property
-                if (data.length === 0) {
-                    container.innerHTML = '<p>No responses yet.</p>';
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<p>No players found.</p>';
                     return;
                 }
 
@@ -226,6 +262,35 @@
 
         // Load the grid for the first time when the page loads
         document.addEventListener('DOMContentLoaded', loadGridData);
+
+        // --- API TEST LOGIC ---
+        document.getElementById('test-config-btn').addEventListener('click', function() {
+            const outputEl = document.getElementById('test-output');
+            const testButton = this;
+
+            outputEl.textContent = 'Testing...';
+            testButton.disabled = true;
+
+            fetch(webAppUrl, {
+                method: 'POST',
+                redirect: 'follow', // Match apiService.js
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Match apiService.js
+                body: JSON.stringify({ action: 'getGameConfig' })
+            })
+            .then(response => response.json())
+            .then(result => {
+                // Pretty-print the JSON result for readability
+                outputEl.textContent = JSON.stringify(result, null, 2);
+            })
+            .catch(error => {
+                console.error('Test failed:', error);
+                outputEl.textContent = `An error occurred during the test:\n${error.toString()}`;
+                outputEl.style.color = 'red';
+            })
+            .finally(() => {
+                testButton.disabled = false;
+            });
+        });
 
     </script>
 </body>
