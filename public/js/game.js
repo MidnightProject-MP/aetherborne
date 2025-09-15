@@ -632,18 +632,28 @@ export default class Game {
      * @private
      */
     _checkTileForAutomaticInteractions(entity, tile) {
-        if (!entity || !tile) return;
+        if (!entity || !tile) {
+            console.log('[AutoInteract] Check aborted: missing entity or tile.', { entity, tile });
+            return;
+        }
+        console.log(`[AutoInteract] Checking tile (${tile.q}, ${tile.r}) for interactions for ${entity.name}.`);
+
         const entitiesOnTile = this.gameMap.getEntitiesAt(tile.q, tile.r);
+        console.log(`[AutoInteract] Found ${entitiesOnTile.length} entities on tile:`, entitiesOnTile.map(e => e.name));
 
         for (const otherEntity of entitiesOnTile) {
             if (otherEntity.id === entity.id) continue; // Don't interact with self
 
             // Check for traps
-            if (otherEntity.hasComponent('trap')) otherEntity.getComponent('trap').activate(entity);
+            if (otherEntity.hasComponent('trap')) {
+                console.log(`[AutoInteract] Found trap '${otherEntity.name}'. Activating.`);
+                otherEntity.getComponent('trap').activate(entity);
+            }
 
             // Check for portals
             // This triggers the map transition automatically when the player lands on the portal tile.
             if (otherEntity.hasComponent('portal') && entity.type === 'player') {
+                console.log(`[AutoInteract] Found portal '${otherEntity.name}'. Interacting.`);
                 otherEntity.getComponent('portal').interact(entity);
             }
         }

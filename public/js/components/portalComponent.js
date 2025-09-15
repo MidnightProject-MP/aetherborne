@@ -18,6 +18,7 @@ class PortalComponent extends InteractableComponent {
      * @param {Entity} interactingEntity - The entity interacting with the portal.
      */
     interact(interactingEntity) {
+        console.log(`[PortalComponent] Interacting with ${interactingEntity.name}. nextMapId is ${this.nextMapId}`);
         // The logic to handle the transition (or end the game) is in the Game class.
         // This component's only job is to publish the request.
         const message = this.nextMapId
