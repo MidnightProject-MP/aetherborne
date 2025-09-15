@@ -383,6 +383,126 @@ function handleGetReplay(payload) {
     throw new Error(`Replay with sessionId '${sessionId}' not found.`);
 }
 
+/**
+ * Handles a test POST request.
+ */
+function handleTestPost() {
+    return { status: 'success', message: 'hello world!' };
+}
+
+/**
+ * Handles score submission.
+ */
+function handleSubmitScore(payload) {
+    const { name, score } = payload;
+    if (!name || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'name' (string) and 'score' (number).");
+    
+    const sheet = getSheet('HighScores');
+    sheet.appendRow([name, score, new Date()]);
+    return { status: 'success', message: 'Score submitted.' };
+}
+
+/**
+ * Handles starting a new game session.
+ */
+function handleNewGame(payload) {
+    let { mapId, characterData } = payload;
+    if (!mapId || !characterData) {
+        throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
+    }
+
+    if (characterData.playerid) {
+        console.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
+        const authoritativeCharacterData = handleGetPlayerData({ playerId: characterData.playerid });
+        characterData = authoritativeCharacterData;
+        mapId = characterData.currentmapid;
+    }
+
+    const mapsSheet = getSheet('Maps');
+    if (!mapsSheet) throw new Error("Critical Error: Sheet 'Maps' not found.");
+    
+    const mapsData = mapsSheet.getDataRange().getValues();
+    const mapRow = mapsData.find(row => row[0] === mapId);
+    if (!mapRow) throw new Error(`Map with ID '${mapId}' not found.`);
+    
+    const mapTemplate = JSON.parse(mapRow[2]);
+    const sessionId = Utilities.getUuid();
+    const seed = new Date().getTime().toString();
+
+    const sessionsSheet = getSheet('GameSessions');
+    if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
+    
+    return { sessionId, seed, mapTemplate, characterData };
+}
+
+/**
+ * Handles updating a player's persistent state.
+ */
+function handleUpdatePlayerState(payload) {
+    const { playerId, finalState } = payload;
+    if (!playerId || !finalState) {
+        throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
+    }
+
+    const playersSheet = getSheet('Players');
+    if (!playersSheet) throw new Error("Critical Error: Sheet 'Players' not found.");
+
+    const data = playersSheet.getDataRange().getValues();
+    const playerRowIndex = data.findIndex(row => row[0] === playerId);
+
+    if (playerRowIndex === -1) {
+        throw new Error(`Player with ID '${playerId}' not found for update.`);
+    }
+
+    // This is a simplified update. It only updates the CurrentMapID.
+    // A more complex implementation could update stats, traits, etc.
+    // Note: The row index is 1-based for sheets, and we need to account for the header row.
+    playersSheet.getRange(playerRowIndex + 1, 4).setValue(finalState.currentMapId);
+
+    return { status: 'success', message: `Player ${playerId} state updated.`};
+}
+
+/**
+ * Handles submission of a player's game replay for validation.
+ */
+function handleSubmitReplay(payload) {
+    const { sessionId, replayLog, finalStateClient, playerName } = payload;
+    if (!sessionId || !replayLog || !finalStateClient || !playerName) {
+        throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', 'finalStateClient', and 'playerName'.");
+    }
+
+    const sessionsSheet = getSheet('GameSessions');
+    if (!sessionsSheet) throw new Error("Critical Error: Sheet 'GameSessions' not found.");
+    
+    const sessionsData = sessionsSheet.getDataRange().getValues();
+    const sessionRow = sessionsData.find(row => row[0] === sessionId);
+    if (!sessionRow) throw new Error(`Session with ID '${sessionId}' not found. Replay rejected.`);
+
+    const seed = sessionRow[1];
+    const mapId = sessionRow[2];
+
+    const mapsSheet = getSheet('Maps');
+    const mapsData = mapsSheet.getDataRange().getValues();
+    const mapRow = mapsData.find(row => row[0] === mapId);
+    if (!mapRow) throw new Error(`Map with ID '${mapId}' from session not found.`);
+    const mapTemplate = JSON.parse(mapRow[2]);
+
+    const serverGame = new GameEngine(seed, mapTemplate);
+    const finalStateServer = serverGame.playGame(replayLog);
+
+    const isVerified = true; // Forcing verification to pass for now.
+    logPlayerReplay('PlayerReplays', sessionId, seed, mapTemplate, replayLog, finalStateServer, isVerified);
+
+    if (isVerified) {
+        const score = finalStateServer.player.xp || 0;
+        const highScoresSheet = getSheet('HighScores');
+        if (highScoresSheet) highScoresSheet.appendRow([playerName, score, new Date(), sessionId]);
+    }
+    
+    const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
+    return { status: 'success', message: message, verified: isVerified };
+}
+
 function doOptions(e) {
   return ContentService.createTextOutput()
     .setHeader("Access-Control-Allow-Origin", "*")
@@ -396,175 +516,47 @@ function doOptions(e) {
  * @param {Object} e The event object from the POST request.
  */
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000); // Wait up to 30 seconds.
+
   try {
-    // Use application/json content type
-    const request = JSON.parse(e.postData.contents); 
+    const request = JSON.parse(e.postData.contents);
     const action = request.action;
-    const payload = request.payload || {}; // Ensure payload is an object even if empty
+    const payload = request.payload || {};
 
-    if (!action) {
-      // If no action is specified, it can be helpful to treat it as a simple ping/test
-      // instead of an error. This will make your test case pass.
-      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Ping successful. API is listening for POST requests.' }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-    }
+    // Helper to create a standard JSON response
+    const createJsonResponse = (data) => {
+      return ContentService.createTextOutput(JSON.stringify(data))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader("Access-Control-Allow-Origin", "*");
+    };
 
-    // --- NEW: Simple test endpoint ---
-    if (action === 'testPost') {
-        const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'hello world!' }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-        return output;
-    }
-
-    // --- NEW: Handle actions previously in doGet ---
-    if (action === 'getHighScores') {
-        const responseData = handleGetHighScores();
-        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
-    }
-    if (action === 'getGameConfig') {
-        const responseData = handleGetGameConfig();
-        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-control-allow-origin", "*");
-    }
-    if (action === 'getPlayerData') {
-        const responseData = handleGetPlayerData(payload);
-        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
-    }
-    if (action === 'getReplay') {
-        const responseData = handleGetReplay(payload);
-        return ContentService.createTextOutput(JSON.stringify(responseData)).setMimeType(ContentService.MimeType.JSON).setHeader("Access-Control-Allow-Origin", "*");
-    }
-
-    // --- Existing POST actions ---
-    if (action === 'submitScore') {
-      const { name, score } = payload;
-      if (!name || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'name' (string) and 'score' (number).");
-      
-      const sheet = getSheet('HighScores');
-      sheet.appendRow([name, score, new Date()]);
-      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Score submitted.' }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-      return output;
-            
-    } else if (action === 'newGame') {
-      let { mapId, characterData } = payload; // Use let as characterData may be replaced
-      if (!mapId || !characterData) {
-        throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
-      }
-
-      // --- AUTHORITATIVE DATA CHECK ---
-      // If the character data includes a playerId, it's an existing character.
-      // We IGNORE the stats from the client and fetch the authoritative data from our sheet.
-      if (characterData.playerid) {
-          console.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
-          // Simulate the event object 'e' that handleGetPlayerData expects
-          const authoritativeCharacterData = handleGetPlayerData({ playerId: characterData.playerid });
-          
-          // Replace the client-sent data with the server's authoritative data
-          characterData = authoritativeCharacterData;
-          
-          // The mapId must also come from the authoritative data, not the client's request.
-          mapId = characterData.currentmapid;
-      }
-
-      const mapsSheet = getSheet('Maps');
-      if (!mapsSheet) throw new Error("Critical Error: Sheet 'Maps' not found.");
-      
-      const mapsData = mapsSheet.getDataRange().getValues();
-      const mapRow = mapsData.find(row => row[0] === mapId);
-      if (!mapRow) throw new Error(`Map with ID '${mapId}' not found.`);
-      
-      const mapTemplate = JSON.parse(mapRow[2]);
-      const sessionId = Utilities.getUuid();
-      const seed = new Date().getTime().toString();
-
-      const sessionsSheet = getSheet('GameSessions');
-      if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
-      
-      // Return the full session details, including the (potentially updated) character data.
-      const output = ContentService.createTextOutput(JSON.stringify({ sessionId, seed, mapTemplate, characterData }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-      return output;
-
-    } else if (action === 'updatePlayerState') {
-        const { playerId, finalState } = payload;
-        if (!playerId || !finalState) {
-            throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
-        }
-
-        const playersSheet = getSheet('Players');
-        if (!playersSheet) throw new Error("Critical Error: Sheet 'Players' not found.");
-
-        const data = playersSheet.getDataRange().getValues();
-        const playerRowIndex = data.findIndex(row => row[0] === playerId);
-
-        if (playerRowIndex === -1) {
-            throw new Error(`Player with ID '${playerId}' not found for update.`);
-        }
-
-        // This is a simplified update. It only updates the CurrentMapID.
-        // A more complex implementation could update stats, traits, etc.
-        // Note: The row index is 1-based for sheets, and we need to account for the header row.
-        playersSheet.getRange(playerRowIndex + 1, 4).setValue(finalState.currentMapId);
-
-        const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: `Player ${playerId} state updated.`}))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-        return output;
-
-    } else if (action === 'submitReplay') {
-      const { sessionId, replayLog, finalStateClient, playerName } = payload;
-      if (!sessionId || !replayLog || !finalStateClient || !playerName) {
-        throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', and 'finalStateClient'.");
-      }
-
-      // --- 1. Fetch Authoritative Session Data ---
-      const sessionsSheet = getSheet('GameSessions');
-      if (!sessionsSheet) throw new Error("Critical Error: Sheet 'GameSessions' not found.");
-      
-      const sessionsData = sessionsSheet.getDataRange().getValues();
-      const sessionRow = sessionsData.find(row => row[0] === sessionId);
-      if (!sessionRow) throw new Error(`Session with ID '${sessionId}' not found. Replay rejected.`);
-
-      const seed = sessionRow[1];
-      const mapId = sessionRow[2];
-
-      // --- 2. Re-run the game on the server using the authoritative data ---
-      // NOTE: This is the CRITICAL DIVERGENCE POINT. The `GameEngine` class below
-      // is a simple placeholder. For true validation, this must be replaced with
-      // a headless version of the client's full ECS game engine.
-      const mapsSheet = getSheet('Maps');
-      const mapsData = mapsSheet.getDataRange().getValues();
-      const mapRow = mapsData.find(row => row[0] === mapId);
-      if (!mapRow) throw new Error(`Map with ID '${mapId}' from session not found.`);
-      const mapTemplate = JSON.parse(mapRow[2]);
-
-      const serverGame = new GameEngine(seed, mapTemplate);
-      const finalStateServer = serverGame.playGame(replayLog);
-
-      // --- 3. Compare states and log the result ---
-      // TODO: Re-enable real validation once the server engine matches the client.
-      const isVerified = true; // Forcing verification to pass for now.
-      logPlayerReplay('PlayerReplays', sessionId, seed, mapTemplate, replayLog, finalStateServer, isVerified);
-
-      // If verified, also log to HighScores sheet
-      if (isVerified) {
-        const score = finalStateServer.player.xp || 0;
-        const highScoresSheet = getSheet('HighScores');
-        if (highScoresSheet) highScoresSheet.appendRow([playerName, score, new Date(), sessionId]);
-      }
-      
-      const message = isVerified ? 'Replay verified and saved.' : 'Replay verification failed.';
-      const output = ContentService.createTextOutput(JSON.stringify({ status: 'success', message: message, verified: isVerified }))
-            .setMimeType(ContentService.MimeType.JSON)
-            .setHeader("Access-Control-Allow-Origin", "*");
-      return output;
-
-    } else {
-      throw new Error(`Unknown action: '${action}'.`);
+    // Action router
+    switch (action) {
+      case 'getHighScores':
+        return createJsonResponse(handleGetHighScores());
+      case 'getGameConfig':
+        return createJsonResponse(handleGetGameConfig());
+      case 'getPlayerData':
+        return createJsonResponse(handleGetPlayerData(payload));
+      case 'getReplay':
+        return createJsonResponse(handleGetReplay(payload));
+      case 'testPost':
+        return createJsonResponse(handleTestPost());
+      case 'submitScore':
+        return createJsonResponse(handleSubmitScore(payload));
+      case 'newGame':
+        return createJsonResponse(handleNewGame(payload));
+      case 'updatePlayerState':
+        return createJsonResponse(handleUpdatePlayerState(payload));
+      case 'submitReplay':
+        return createJsonResponse(handleSubmitReplay(payload));
+      case undefined:
+      case null:
+        // Default ping action if no action is specified
+        return createJsonResponse({ status: 'success', message: 'Ping successful. API is listening for POST requests.' });
+      default:
+        throw new Error(`Unknown action: '${action}'.`);
     }
   } catch (error) {
     // Log the full stack trace for better debugging in Apps Script logs.
@@ -573,6 +565,8 @@ function doPost(e) {
     errorOutput.setMimeType(ContentService.MimeType.JSON);
     errorOutput.setHeader("Access-Control-Allow-Origin", "*");
     return errorOutput;
+  } finally {
+    lock.releaseLock();
   }
 }
 /**
