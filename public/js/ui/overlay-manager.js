@@ -90,33 +90,37 @@ class OverlayManager {
      * @param {string} payload.message - The game over message.
      * @private
      */
-    _showGameOverModal({ message }) {
+    _showGameOverModal({ message, score }) {
         this.hideAll();
         
         const overlay = this._createBaseOverlay('modal');
         
-        const messageElem = document.createElement('p');
-        messageElem.innerHTML = message;
-        overlay.appendChild(messageElem);
-        
-        const input = document.createElement('input');
-        input.id = 'player-name-input';
-        input.type = 'text';
-        input.placeholder = 'Enter your name';
-        overlay.appendChild(input);
+        const titleElem = document.createElement('h2');
+        titleElem.textContent = message;
+        overlay.appendChild(titleElem);
+
+        const scoreElem = document.createElement('p');
+        scoreElem.textContent = `Final Score: ${score}`;
+        overlay.appendChild(scoreElem);
+
+        // Add a message about score submission
+        const infoElem = document.createElement('p');
+        infoElem.style.fontSize = '0.9rem';
+        infoElem.style.color = '#666';
+        infoElem.textContent = 'Your score and replay are being submitted automatically.';
+        overlay.appendChild(infoElem);
         
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'overlay-buttons';
         
-        const submitButton = document.createElement('button');
-        submitButton.textContent = 'Submit Score';
-        submitButton.addEventListener('click', () => {
-            const playerName = input.value || "Anonymous";
-            this.eventBus.publish('submitHighScore', { name: playerName });
-            this.hide(overlay);
+        const returnButton = document.createElement('button');
+        returnButton.textContent = 'Return to Main Menu';
+        returnButton.addEventListener('click', () => {
+            // Publish an event for the orchestrator to handle the page reload.
+            this.eventBus.publish('returnToMainMenu');
         });
         
-        buttonContainer.appendChild(submitButton);
+        buttonContainer.appendChild(returnButton);
         overlay.appendChild(buttonContainer);
         
         this._show(overlay);

@@ -33,6 +33,7 @@ export class Orchestrator {
 
     bindEventHandlers() {
         this.eventBus.subscribe('gameOver', this.handleGameOver.bind(this));
+        this.eventBus.subscribe('returnToMainMenu', this.handleReturnToMainMenu.bind(this));
     }
 
     async handleGameOver(payload = {}) {
@@ -72,6 +73,12 @@ export class Orchestrator {
                 console.error("[Orchestrator] Failed to save player state:", error);
             }
         }
+    }
+
+    handleReturnToMainMenu() {
+        console.log("[Orchestrator] Returning to main menu...");
+        // The simplest and most robust way to reset the entire game state and go back to the start.
+        window.location.reload();
     }
 
     /**
