@@ -13,7 +13,7 @@ import { startNewGame, getGameConfig, submitReplay, getPlayerData, updatePlayerS
 /**
  * Orchestrates the initialization sequence of the game.
  */
-export class Orchestrator {
+export class LiveGameOrchestrator {
     constructor(eventBus, highScoreManager) {
         this.eventBus = eventBus;
         this.highScoreManager = highScoreManager;
@@ -37,19 +37,19 @@ export class Orchestrator {
     }
 
     async handleGameOver(payload = {}) {
-        console.log("[Orchestrator] Game Over event received:", payload.message);
+        console.log("[LiveGameOrchestrator] Game Over event received:", payload.message);
         const playerName = payload.characterData?.name || "Anonymous Hero";
 
         // Also submit the replay for validation
         if (payload.replayData) {
             try {
-                console.log("[Orchestrator] Submitting replay for validation...");
+                console.log("[LiveGameOrchestrator] Submitting replay for validation...");
                 // Get the final game state from the game instance in a format the server can verify.
                 const finalStateClient = this.gameInstance.getSerializableState();
                 const validationResult = await submitReplay(payload.replayData.sessionId, payload.replayData.replayLog, finalStateClient, playerName);
-                console.log("[Orchestrator] Replay validation result:", validationResult);
+                console.log("[LiveGameOrchestrator] Replay validation result:", validationResult);
             } catch (error) {
-                console.error("[Orchestrator] Failed to submit replay:", error);
+                console.error("[LiveGameOrchestrator] Failed to submit replay:", error);
             }
         }
 
@@ -68,15 +68,15 @@ export class Orchestrator {
                 };
 
                 await updatePlayerState(payload.characterData.playerid, stateToSave);
-                console.log(`[Orchestrator] Player state for ${playerName} saved successfully. Next map is now: ${nextMap}`);
+                console.log(`[LiveGameOrchestrator] Player state for ${playerName} saved successfully. Next map is now: ${nextMap}`);
             } catch (error) {
-                console.error("[Orchestrator] Failed to save player state:", error);
+                console.error("[LiveGameOrchestrator] Failed to save player state:", error);
             }
         }
     }
 
     handleReturnToMainMenu() {
-        console.log("[Orchestrator] Returning to main menu...");
+        console.log("[LiveGameOrchestrator] Returning to main menu...");
         // The simplest and most robust way to reset the entire game state and go back to the start.
         window.location.reload();
     }
@@ -104,7 +104,7 @@ export class Orchestrator {
         let allPresent = true;
         for (const id of requiredIds) {
             if (!document.getElementById(id)) {
-                console.error(`[Orchestrator] Required DOM element with id "${id}" is missing.`);
+                console.error(`[LiveGameOrchestrator] Required DOM element with id "${id}" is missing.`);
                 allPresent = false;
             }
         }
@@ -117,9 +117,9 @@ export class Orchestrator {
     wireSplashScreenStartButton() {
         const startBtn = document.getElementById('start-btn');
         if (startBtn) {
-            console.log("[Orchestrator] Start button found, attaching click handler");
+            console.log("[LiveGameOrchestrator] Start button found, attaching click handler");
             startBtn.addEventListener('click', () => {
-                console.log('[Orchestrator] START button clicked. Publishing transitionToCharacterCreation event.');
+                console.log('[LiveGameOrchestrator] START button clicked. Publishing transitionToCharacterCreation event.');
                 this.eventBus.publish('transitionToCharacterCreation');
             });
         }
@@ -132,13 +132,13 @@ export class Orchestrator {
         // NOTE: This assumes a button with id 'high-scores-btn' exists on the splash screen.
         const highScoresBtn = document.getElementById('high-scores-btn');
         if (highScoresBtn) {
-            console.log("[Orchestrator] High Scores button found, attaching click handler");
+            console.log("[LiveGameOrchestrator] High Scores button found, attaching click handler");
             highScoresBtn.addEventListener('click', () => {
-                console.log('[Orchestrator] High Scores button clicked. Displaying scores.');
+                console.log('[LiveGameOrchestrator] High Scores button clicked. Displaying scores.');
                 this.highScoreManager.displayHighScores();
             });
         } else {
-            console.warn('[Orchestrator] High Scores button (high-scores-btn) not found!');
+            console.warn('[LiveGameOrchestrator] High Scores button (high-scores-btn) not found!');
         }
     }
 
@@ -148,22 +148,22 @@ export class Orchestrator {
     wireContinueButton() {
         const continueBtn = document.getElementById('continue-btn');
         if (continueBtn) {
-            console.log("[Orchestrator] Continue button found, attaching click handler");
+            console.log("[LiveGameOrchestrator] Continue button found, attaching click handler");
             continueBtn.addEventListener('click', async () => {
-                console.log('[Orchestrator] Continue button clicked. Loading default player data.');
+                console.log('[LiveGameOrchestrator] Continue button clicked. Loading default player data.');
                 continueBtn.disabled = true;
                 continueBtn.textContent = 'LOADING...';
                 try {
                     const characterData = await getPlayerData('Player1');
                     this.eventBus.publish('characterCreated', characterData);
                 } catch (error) {
-                    console.error('[Orchestrator] Failed to load player data:', error);
+                    console.error('[LiveGameOrchestrator] Failed to load player data:', error);
                     continueBtn.disabled = false;
                     continueBtn.textContent = 'Continue';
                 }
             });
         } else {
-            console.warn('[Orchestrator] Continue button (continue-btn) not found!');
+            console.warn('[LiveGameOrchestrator] Continue button (continue-btn) not found!');
         }
     }
 
@@ -173,13 +173,13 @@ export class Orchestrator {
     async * createInitializationSequence() {
         // 1. Wait for DOM
         await this.waitForDOM();
-        console.log("[Orchestrator] DOM is ready.");
+        console.log("[LiveGameOrchestrator] DOM is ready.");
 
         // 2. Initialize GameStateManager first and show the splash screen immediately.
         this.gameStateManager = await this.initializeGameStateManager();
-        console.log("[Orchestrator] GameStateManager initialized.");
+        console.log("[LiveGameOrchestrator] GameStateManager initialized.");
         this.gameStateManager.transitionTo('SPLASH');
-        console.log("[Orchestrator] Commanded transition to SPLASH state.");
+        console.log("[LiveGameOrchestrator] Commanded transition to SPLASH state.");
 
         // --- UI Feedback for Loading ---
         const continueBtn = document.getElementById('continue-btn');
@@ -194,11 +194,11 @@ export class Orchestrator {
         }
 
         // Fetch dynamic config from server.
-        console.log("[Orchestrator] Fetching game configuration from server...");
+        console.log("[LiveGameOrchestrator] Fetching game configuration from server...");
         try {
             const dynamicConfig = await getGameConfig();
             this.config = { ...CONFIG, ...dynamicConfig };
-            console.log("[Orchestrator] Game configuration loaded.");
+            console.log("[LiveGameOrchestrator] Game configuration loaded.");
 
             // --- Restore UI on Success ---
             if (continueBtn) {
@@ -210,7 +210,7 @@ export class Orchestrator {
                 newGameBtn.textContent = 'New Game';
             }
         } catch (error) {
-            console.error("[Orchestrator] CRITICAL: Failed to load game configuration from server.", error);
+            console.error("[LiveGameOrchestrator] CRITICAL: Failed to load game configuration from server.", error);
             if (continueBtn) continueBtn.textContent = 'Error';
             if (newGameBtn) newGameBtn.textContent = 'Error';
             return; // Stop initialization
@@ -222,27 +222,27 @@ export class Orchestrator {
         this.wireHighScoreButton();
 
         // 3. Initialize CharacterCreator with proper error handling
-        console.log("[Orchestrator] Attempting CharacterCreator initialization...");
+        console.log("[LiveGameOrchestrator] Attempting CharacterCreator initialization...");
         this.characterCreator = await this.initializeCharacterCreator(this.config); // Pass config
-        console.log("[Orchestrator] CharacterCreator result:", this.characterCreator);
+        console.log("[LiveGameOrchestrator] CharacterCreator result:", this.characterCreator);
         if (!this.characterCreator) {
-            console.error("[Orchestrator] CharacterCreator creation failed. Aborting game startup.");
+            console.error("[LiveGameOrchestrator] CharacterCreator creation failed. Aborting game startup.");
             return;
         }
-        console.log("[Orchestrator] CharacterCreator successfully initialized and assigned.");
+        console.log("[LiveGameOrchestrator] CharacterCreator successfully initialized and assigned.");
 
         // 4. Set up event handlers
 
         // 6. Wait for character creation
-        console.log("[Orchestrator] Now waiting for user to create a character or continue...");
+        console.log("[LiveGameOrchestrator] Now waiting for user to create a character or continue...");
         const initialCharacterData = await this.waitForCharacterCreation();
-        console.log("[Orchestrator] Character created.");
+        console.log("[LiveGameOrchestrator] Character created.");
 
         // 7. Request a new game session from the server BEFORE creating the game instance.
-        console.log("[Orchestrator] Requesting new game session from server...");
+        console.log("[LiveGameOrchestrator] Requesting new game session from server...");
         // The server now returns the authoritative session AND character data.
         const authoritativeSession = await startNewGame(initialCharacterData.currentMapId || 'prologue_map_1', initialCharacterData);
-        console.log("[Orchestrator] Authoritative session data received:", authoritativeSession);
+        console.log("[LiveGameOrchestrator] Authoritative session data received:", authoritativeSession);
 
         // Use the data returned from the server, not the initial data.
         // This is the core of the security fix.
@@ -279,10 +279,10 @@ export class Orchestrator {
         // 10. Now, initialize the map layout and entities. This will use the systems we just set up.
         await this.gameInstance.initializeLayoutAndMap(characterData);
         if (!this.gameInstance.player) {
-            console.error("[Orchestrator] Game instance failed to create player. Aborting.");
+            console.error("[LiveGameOrchestrator] Game instance failed to create player. Aborting.");
             return;
         }
-        console.log("[Orchestrator] Game instance created and initialized.");
+        console.log("[LiveGameOrchestrator] Game instance created and initialized.");
 
         // 11. Set up PlayerInputComponent event listeners
         if (this.gameInstance.player) {
@@ -303,29 +303,29 @@ export class Orchestrator {
         this.playerHUD = new PlayerHUD(this.eventBus);
         // Defensive: check before wiring
         if (!this.gameInstance.gameMap) {
-            console.warn('[Orchestrator] gameInstance.gameMap is not set when wiring PlayerHUD.');
+            console.warn('[LiveGameOrchestrator] gameInstance.gameMap is not set when wiring PlayerHUD.');
         }
         if (!this.gameInstance.player) {
-            console.warn('[Orchestrator] gameInstance.player is not set when wiring PlayerHUD.');
+            console.warn('[LiveGameOrchestrator] gameInstance.player is not set when wiring PlayerHUD.');
         }
         this.playerHUD.setGameMap(this.gameInstance.gameMap);
         this.playerHUD.setPlayer(this.gameInstance.player);
         this.playerHUD.updateTurnIndicator('player');
-        console.log("[Orchestrator] PlayerHUD initialized and wired to game/player.");
+        console.log("[LiveGameOrchestrator] PlayerHUD initialized and wired to game/player.");
 
         // Wire up the End Turn button. This logic would ideally be in PlayerHUD,
         // but adding it here ensures it's connected correctly.
         const endTurnButton = document.getElementById('end-turn-button');
         if (endTurnButton) {
             endTurnButton.addEventListener('click', () => {
-                console.log("[Orchestrator] End Turn button clicked, publishing 'playerEndTurn'.");
+                console.log("[LiveGameOrchestrator] End Turn button clicked, publishing 'playerEndTurn'.");
                 this.eventBus.publish('playerEndTurn');
             });
         }
 
         // 13. Signal ready
         await this.signalGameReady();
-        console.log("[Orchestrator] Game Ready signal sent.");
+        console.log("[LiveGameOrchestrator] Game Ready signal sent.");
 
         // Yield a final value if the for-await-of loop expects something.
         yield 'InitializationSequenceComplete';
@@ -336,11 +336,11 @@ export class Orchestrator {
      * Called from main.js.
      */
     async start() {
-        console.log("[Orchestrator] Starting initialization sequence...");
+        console.log("[LiveGameOrchestrator] Starting initialization sequence...");
         for await (const step of this.initializationSequence) {
             // Each step is already executed in the generator, so we just iterate.
         }
-        console.log("[Orchestrator] Initialization complete.");
+        console.log("[LiveGameOrchestrator] Initialization complete.");
     }
 
     /**
@@ -362,7 +362,7 @@ export class Orchestrator {
      */
     initializeGameStateManager() {
         return new Promise(resolve => {
-            console.log("[Orchestrator] Creating GameStateManager...");
+            console.log("[LiveGameOrchestrator] Creating GameStateManager...");
             const gameStateManager = new GameStateManager(this.eventBus);
             resolve(gameStateManager);
         });
@@ -373,21 +373,21 @@ export class Orchestrator {
      */
     initializeCharacterCreator(config) {
         return new Promise((resolve) => {
-            console.log("[Orchestrator] Starting CharacterCreator initialization...");
+            console.log("[LiveGameOrchestrator] Starting CharacterCreator initialization...");
             const container = document.getElementById('character-creation-poc');
             
             if (!container) {
-                console.error("[Orchestrator] Character creation container not found!");
+                console.error("[LiveGameOrchestrator] Character creation container not found!");
                 resolve(null);
                 return;
             }
 
             try {
                 const characterCreator = new CharacterCreator(container, this.eventBus, config);
-                console.log("[Orchestrator] CharacterCreator local instance before resolve:", characterCreator);
+                console.log("[LiveGameOrchestrator] CharacterCreator local instance before resolve:", characterCreator);
                 resolve(characterCreator); // Resolve with the created instance
             } catch (error) {
-                console.error("[Orchestrator] Failed to create CharacterCreator:", error);
+                console.error("[LiveGameOrchestrator] Failed to create CharacterCreator:", error);
                 resolve(null);
             }
         });

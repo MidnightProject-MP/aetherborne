@@ -113,16 +113,14 @@ export class ReplayOrchestrator {
 
     async playNextTurn() {
         if (!this.isPlaying || this.currentTurn >= this.replayData.replayLog.length) {
-            this.togglePlayback(); // Auto-pause at the end
+            this.handleReplayEnd('Replay finished.');
             return;
         }
 
         const success = await this.executeTurn(this.currentTurn);
 
         if (!success) {
-            this.showError(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`);
-            this.togglePlayback(); // Stop playback
-            this.stepForwardBtn.disabled = true;
+            this.handleReplayEnd(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`, true);
             return;
         }
 
@@ -134,7 +132,10 @@ export class ReplayOrchestrator {
 
     async stepForward() {
         if (this.isPlaying) return; // Only step when paused
-        if (this.currentTurn >= this.replayData.replayLog.length) return; // At the end
+        if (this.currentTurn >= this.replayData.replayLog.length) {
+            this.handleReplayEnd('Replay finished.');
+            return;
+        }
 
         const success = await this.executeTurn(this.currentTurn);
 
@@ -142,9 +143,7 @@ export class ReplayOrchestrator {
             this.currentTurn++;
             this.updateTurnCounter();
         } else {
-            this.showError(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`);
-            this.playPauseBtn.disabled = true;
-            this.stepForwardBtn.disabled = true;
+            this.handleReplayEnd(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`, true);
         }
     }
 
@@ -190,9 +189,7 @@ export class ReplayOrchestrator {
         if (wasPlaying) this.togglePlayback(); // Pause
 
         if (!nextMapId) {
-            this.showMessage('Dungeon Completed! Replay finished.');
-            this.playPauseBtn.disabled = true;
-            this.stepForwardBtn.disabled = true;
+            this.handleReplayEnd('Dungeon Completed! Replay finished.');
             return;
         }
 
@@ -202,8 +199,14 @@ export class ReplayOrchestrator {
             const newMapTemplate = this.config.maps[nextMapId];
             if (!newMapTemplate) throw new Error(`Map template for '${nextMapId}' not found.`);
 
+            // The ReplayOrchestrator is now in charge of the transition.
+            // 1. Preserve the player.
+            const playerToPreserve = this.gameInstance.player;
+            // 2. Clean up the old map state.
+            this.gameInstance._cleanupForTransition();
+            // 3. Set the new map template and re-initialize the game instance.
             this.gameInstance.sessionData.mapTemplate = newMapTemplate;
-            await this.gameInstance.handleMapTransition(nextMapId, entityId);
+            await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, playerToPreserve);
             
             this.hideMessage();
             if (wasPlaying) this.togglePlayback(); // Resume
@@ -216,19 +219,48 @@ export class ReplayOrchestrator {
         this.turnCounter.textContent = `Turn: ${this.currentTurn} / ${this.replayData.replayLog.length}`;
     }
 
-    showMessage(message) {
-        this.statusMessage.textContent = message;
+    handleReplayEnd(message, isError = false) {
+        if (isError) {
+            this.showError(message, true);
+        } else {
+            this.showMessage(message, true);
+        }
+        this.playPauseBtn.disabled = true;
+        this.stepForwardBtn.disabled = true;
+        if (this.isPlaying) {
+            this.togglePlayback(); // Stop playback
+        }
+    }
+
+    showMessage(message, isEnd = false) {
+        this.statusMessage.innerHTML = ''; // Clear previous content
+        const text = document.createElement('span');
+        text.textContent = message;
+        this.statusMessage.appendChild(text);
+
+        if (isEnd) {
+            this.addReturnToMenuButton();
+        }
+
         this.statusMessage.style.display = 'block';
         this.statusMessage.style.backgroundColor = 'rgba(255, 255, 0, 0.8)';
     }
 
-    showError(message) {
-        this.statusMessage.textContent = message;
+    showError(message, isEnd = false) {
+        this.showMessage(message, isEnd); // Use showMessage to add the button
         this.statusMessage.style.display = 'block';
         this.statusMessage.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
     }
 
     hideMessage() {
         this.statusMessage.style.display = 'none';
+    }
+
+    addReturnToMenuButton() {
+        const homeButton = document.createElement('button');
+        homeButton.textContent = 'Return to Main Menu';
+        homeButton.style.marginLeft = '20px';
+        homeButton.onclick = () => { window.location.href = 'index.html'; };
+        this.statusMessage.appendChild(homeButton);
     }
 }

@@ -46,6 +46,9 @@ export default class Game {
         this.clickHandler = this.handleClick.bind(this);
         this.rightClickHandler = this.handleRightClick.bind(this);
         this._throttledMouseMove = Game.throttle(this.handleMouseMove.bind(this), 50);
+
+        // Set up event listeners ONCE during construction.
+        this._setupEventListeners();
     }
 
     async initializeLayoutAndMap(characterData, existingPlayer = null) {
@@ -118,7 +121,6 @@ export default class Game {
 
         // 10. Add event listeners for interaction
         this.addEventListeners();
-        this._setupEventListeners();
 
         // 11. Generate initial intents now that the map and entities are fully initialized.
         // This must happen after all systems are set and the map is ready.
