@@ -56,8 +56,8 @@ export class ReplayOrchestrator {
     }
 
     async initializeGame() {
-        // For replay, character data is not needed as entities are created from the map template
-        const characterData = { name: 'Replay Hero' }; 
+        // Use the original character data from the session for accurate replay initialization.
+        const characterData = this.replayData.initialCharacterData; 
         const sessionData = {
             sessionId: this.replayData.sessionId,
             seed: this.replayData.seed,

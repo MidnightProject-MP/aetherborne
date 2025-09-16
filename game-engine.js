@@ -129,13 +129,16 @@ class GameEngine {
 
     executeMove(targetCoords) {
         const player = this.gameState.player;
-        player.q = targetCoords.q;
-        player.r = targetCoords.r;
+        if (player) {
+            player.q = targetCoords.q;
+            player.r = targetCoords.r;
+        }
+        // After any move, check if the player landed on a tile that triggers an interaction.
+        this.checkAutoInteractions(targetCoords);
     }
 
     executePlayerInput(targetCoords) {
         // Find if there's an entity at the target coordinates.
-        // Note: This is a simplified lookup. A real implementation might need a spatial hash.
         let targetEntity = null;
         for (const entity of this.gameState.entities.values()) {
             if (entity.q === targetCoords.q && entity.r === targetCoords.r && entity.id !== this.gameState.player.id) {
@@ -144,11 +147,31 @@ class GameEngine {
             }
         }
 
-        // Same logic as the client: if there's a target, interact. Otherwise, move.
-        if (targetEntity) {
+        // If the target is an attackable enemy, it's a direct interaction (attack).
+        // Otherwise (empty tile or non-attackable entity like a portal), it's a move.
+        // The move itself will trigger any automatic interactions (like portals).
+        if (targetEntity && targetEntity.stats && targetEntity.stats.hp > 0) {
             this.executeInteraction(targetEntity.id);
         } else {
             this.executeMove(targetCoords);
+        }
+    }
+
+    checkAutoInteractions(coords) {
+        // Find entities at the new coordinates, other than the player.
+        for (const entity of this.gameState.entities.values()) {
+            if (entity.id === this.gameState.player.id) continue;
+
+            if (entity.q === coords.q && entity.r === coords.r) {
+                // If we find a portal, interact with it.
+                if (entity.type === 'portal') {
+                    this.executeInteraction(entity.id);
+                    // Important: break because a portal transition changes the entity list,
+                    // which would invalidate the iterator for this loop.
+                    break;
+                }
+                // Future logic for traps could be added here.
+            }
         }
     }
 
@@ -197,6 +220,16 @@ class GameEngine {
     }
 
     executeSkill(details) {
+        // Find if there's an entity at the target coordinates.
+        // Note: This is a simplified lookup. A real implementation might need a spatial hash.
+        let targetEntity = null;
+        for (const entity of this.gameState.entities.values()) {
+            if (entity.q === targetCoords.q && entity.r === targetCoords.r && entity.id !== this.gameState.player.id) {
+                targetEntity = entity;
+                break;
+            }
+        }
+
         const { skillId, targetCoords } = details;
         const player = this.gameState.player;
         const skillConfig = this.gameConfig.skills[skillId];
@@ -306,11 +339,11 @@ function logAiReplay(sheetName, sessionId, seed, mapTemplate, replayLog, finalSt
 /**
  * Logs a replay from a player to the specified sheet, including verification status.
  */
-function logPlayerReplay(sheetName, sessionId, seed, mapTemplate, replayLog, finalState, isVerified) {
+function logPlayerReplay(sheetName, sessionId, replayLog, finalState, isVerified) {
   const sheet = getSheet(sheetName);
   if (sheet) {
     const verificationStatus = isVerified ? 'VERIFIED' : 'MISMATCH';
-    sheet.appendRow([sessionId, seed, JSON.stringify(mapTemplate), JSON.stringify(replayLog), JSON.stringify(finalState), new Date(), verificationStatus]);
+    sheet.appendRow([sessionId, JSON.stringify(replayLog), JSON.stringify(finalState), new Date(), verificationStatus]);
   }
 }
 
@@ -323,9 +356,7 @@ function handleGetHighScores() {
   if (!sheet) return [];
   
   const data = sheet.getDataRange().getValues();
-  // Per user feedback, sheet structure is: session_id, score, timestamp.
-  // We will return a placeholder name for display.
-  // New sheet structure: sessionId, playerName, score, timestamp
+  // Sheet structure is: sessionId, playerName, score, timestamp
   const scores = data.slice(1) // Skip header
     .map(row => ({ 
         sessionId: row[0], 
@@ -427,13 +458,35 @@ function handleGetGameConfig() {
     const maps = sheetToObjects(getSheet('Maps'));
     const players = sheetToObjects(getSheet('Players'));
 
+    // --- NEW: Manually define entity blueprints on the server ---
+    // This should eventually be moved to its own sheet, but for now,
+    // this mirrors the client-side config and fixes the crash.
+    const entityBlueprints = {
+        player: {
+            entityProperties: { blocksMovement: true },
+            components: [
+                { class: 'StatsComponent', argsSource: 'archetypeBaseStats' },
+                // Other components can be added here if needed for server validation
+            ]
+        },
+        enemy: {
+            entityProperties: { blocksMovement: true },
+            components: [
+                { class: 'StatsComponent', argsSource: 'entityProperties', dataSourceKey: 'stats' }
+            ]
+        }
+        // Note: Specific enemies like 'goblinScout' will fall back to the 'enemy' blueprint
+        // in createServerEntity, which is sufficient for current validation logic.
+    };
+
     const gameConfig = {
         archetypes,
         skills,
         traits,
         statusEffects,
         maps,
-        players
+        players,
+        entityBlueprints // Add the blueprints to the config
     };
 
     // 3. Store the newly fetched config in the cache for next time.
@@ -570,18 +623,46 @@ function handleGetReplay(payload) {
     const sessionId = payload.sessionId;
     if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
 
-    const sheetsToSearch = ['AI_Agent_001', 'PlayerReplays'];
-    for (const sheetName of sheetsToSearch) {
-        const sheet = getSheet(sheetName);
-        if (!sheet) continue;
-        const values = sheet.getDataRange().getValues();
-        for (let i = values.length - 1; i >= 0; i--) {
-            if (values[i][0] === sessionId) {
-                return { sessionId: values[i][0], seed: values[i][1], mapTemplate: JSON.parse(values[i][2]), replayLog: JSON.parse(values[i][3]) };
-            }
+    // --- Step 1: Find the replay log in PlayerReplays ---
+    const replaySheet = getSheet('PlayerReplays');
+    if (!replaySheet) throw new Error("Sheet 'PlayerReplays' not found.");
+    const replayValues = replaySheet.getDataRange().getValues();
+    let replayLog = null;
+    for (let i = replayValues.length - 1; i >= 0; i--) {
+        if (replayValues[i][0] === sessionId) {
+            // New structure: [sessionId, replayLog_JSON, finalState_JSON, timestamp, status]
+            replayLog = JSON.parse(replayValues[i][1]);
+            break;
         }
     }
-    throw new Error(`Replay with sessionId '${sessionId}' not found.`);
+    if (!replayLog) throw new Error(`Replay log for sessionId '${sessionId}' not found in PlayerReplays.`);
+
+    // --- Step 2: Find the session start data in GameSessions ---
+    const sessionsSheet = getSheet('GameSessions');
+    if (!sessionsSheet) throw new Error("Sheet 'GameSessions' not found.");
+    const sessionsValues = sessionsSheet.getDataRange().getValues();
+    let seed = null;
+    let versionedMapId = null;
+    for (let i = sessionsValues.length - 1; i >= 0; i--) {
+        if (sessionsValues[i][0] === sessionId) {
+            // Structure: [sessionId, seed, versionedMapId, ...]
+            seed = sessionsValues[i][1];
+            versionedMapId = sessionsValues[i][2];
+            break;
+        }
+    }
+    if (!seed || !versionedMapId) throw new Error(`Initial session data for sessionId '${sessionId}' not found in GameSessions.`);
+
+    // --- Step 3: Get the map template from the game config ---
+    const gameConfig = handleGetGameConfig();
+    const mapData = gameConfig.maps[versionedMapId];
+    if (!mapData) {
+        throw new Error(`Could not find map template for versioned ID '${versionedMapId}' needed for replay '${sessionId}'.`);
+    }
+    const mapTemplate = mapData.maptemplate;
+
+    // --- Step 4: Assemble and return the complete replay object ---
+    return { sessionId, seed, mapTemplate, replayLog, initialCharacterData };
 }
 
 /**
@@ -651,21 +732,31 @@ function handleNewGame(payload) {
         const authoritativeCharacterData = handleGetPlayerData({ playerId: characterData.playerid });
         characterData = authoritativeCharacterData;
         mapId = characterData.currentmapid;
+    } else {
+        // This is a new character. The server is authoritative for its ID.
+        // We generate it here so it can be returned to the client and used in the replay log.
+        // We can't use the deterministic UUID generator because we don't have the session seed yet.
+        characterData.id = Utilities.getUuid();
     }
 
-    const mapsSheet = getSheet('Maps');
-    if (!mapsSheet) throw new Error("Critical Error: Sheet 'Maps' not found.");
-    
-    const mapsData = mapsSheet.getDataRange().getValues();
-    const mapRow = mapsData.find(row => row[0] === mapId);
-    if (!mapRow) throw new Error(`Map with ID '${mapId}' not found.`);
-    
-    const mapTemplate = JSON.parse(mapRow[2]);
+    // --- Direct map lookup ---
+    // This looks for a map directly by its ID, as versioning is not yet implemented in the sheets.
+    const gameConfig = handleGetGameConfig();
+    const mapData = gameConfig.maps[mapId];
+
+    if (!mapData) {
+        throw new Error(`Map with ID '${mapId}' not found in game config.`);
+    }
+
+    const mapTemplate = mapData.maptemplate;
+    const versionedMapId = mapId; // The ID used for the session is the mapId itself.
+
     const sessionId = Utilities.getUuid();
     const seed = new Date().getTime().toString();
 
     const sessionsSheet = getSheet('GameSessions');
-    if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, mapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
+    // Store the specific versionedMapId in the session for later validation.
+    if (sessionsSheet) sessionsSheet.appendRow([sessionId, seed, versionedMapId, new Date(), 'STARTED', JSON.stringify(characterData)]);
     
     return { sessionId, seed, mapTemplate, characterData };
 }
@@ -741,18 +832,19 @@ function handleSubmitReplay(payload) {
     if (!sessionRow) throw new Error(`Session with ID '${sessionId}' not found. Replay rejected.`);
 
     const seed = sessionRow[1];
-    const mapId = sessionRow[2];
+    const versionedMapId = sessionRow[2]; // This is now the specific version ID, e.g., 'map_01_v2'
     const initialCharacterDataString = sessionRow[5]; // characterData JSON
     const initialCharacterData = JSON.parse(initialCharacterDataString);
 
     // Get the full game configuration, which is needed by the new engine.
     const gameConfig = handleGetGameConfig();
 
-    // Get the initial map template from the full config.
-    const mapTemplate = gameConfig.maps[mapId]?.maptemplate;
-    if (!mapTemplate) {
-        throw new Error(`Map template for initial map ID '${mapId}' not found in game config.`);
+    // Get the specific version of the map template from the full config.
+    const mapDataForReplay = gameConfig.maps[versionedMapId];
+    if (!mapDataForReplay) {
+        throw new Error(`Map template for versioned map ID '${versionedMapId}' not found in game config.`);
     }
+    const mapTemplate = mapDataForReplay.maptemplate;
 
     // --- REPLAY VALIDATION ---
     // The server engine is now more stateful and can process the replay log.
@@ -760,8 +852,9 @@ function handleSubmitReplay(payload) {
     const finalStateServer = serverGame.playGame(replayLog);
 
     // For now, validation is always considered successful.
-    const isVerified = true; // Forcing verification to pass for now until the server engine is updated.
-    logPlayerReplay('PlayerReplays', sessionId, seed, mapTemplate, replayLog, finalStateServer, isVerified);
+    const isVerified = true;
+    // Log only the essential replay data. Seed and map info will be looked up from GameSessions.
+    logPlayerReplay('PlayerReplays', sessionId, replayLog, finalStateServer, isVerified);
 
     if (isVerified) {
         // 1. Update the session status to 'COMPLETED'
@@ -780,6 +873,65 @@ function doOptions(e) {
   return ContentService.createTextOutput()
     .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     .setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+/**
+ * A test function to debug the complete game loop: new game -> submit replay.
+ * This can be run directly from the Apps Script editor.
+ */
+function testSubmitReplay() {
+  try {
+    Logger.log("--- Starting Replay Submission Test ---");
+
+    // 1. Start a new game to get a valid session
+    Logger.log("Step 1: Calling handleNewGame to create a session...");
+    const newGamePayload = {
+      mapId: 'prologue_map_1', // A known starting map
+      characterData: {
+        name: 'Replay Tester',
+        archetypeId: 'warrior' // A known archetype
+      }
+    };
+    const sessionData = handleNewGame(newGamePayload);
+    Logger.log(`Session created successfully. SessionID: ${sessionData.sessionId}`);
+    Logger.log(`Player ID: ${sessionData.characterData.id}`);
+
+    // 2. Create a mock replay log
+    // This log simulates the player moving and then interacting with something.
+    // The server-side engine will process these actions.
+    Logger.log("Step 2: Creating a mock replay log...");
+    const playerId = sessionData.characterData.id;
+    const replayLog = [
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 5, r: 8 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 6, r: 5 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 6, r: 2 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 5, r: 1 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 4, r: 9 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 4, r: 6 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 4, r: 3 } } },
+      { type: "playerInput", sourceId: playerId, details: { targetCoords: { q: 5, r: 1 } } }
+    ];
+    Logger.log(`Replay log created with ${replayLog.length} actions.`);
+
+    // 3. Construct the payload for handleSubmitReplay
+    Logger.log("Step 3: Constructing payload for handleSubmitReplay...");
+    const submitPayload = {
+      sessionId: sessionData.sessionId,
+      replayLog: replayLog,
+      playerName: sessionData.characterData.name
+    };
+
+    // 4. Call the handler and log the result
+    Logger.log("Step 4: Calling handleSubmitReplay...");
+    const result = handleSubmitReplay(submitPayload);
+    
+    Logger.log("✅ SUCCESS: handleSubmitReplay returned:");
+    Logger.log(JSON.stringify(result, null, 2));
+
+  } catch (e) {
+    Logger.log(`❌ ERROR in testSubmitReplay: ${e.toString()}`);
+    Logger.log(`Stack Trace: ${e.stack}`);
+  }
 }
 
 /**

@@ -154,12 +154,14 @@ class OverlayManager {
             errorItem.textContent = error;
             listContainer.appendChild(errorItem);
         } else if (scores && scores.length > 0) {
-            scores.forEach(score => {
+            scores.forEach((score, index) => {
                 const listItem = document.createElement('li');
+                const rank = index + 1;
+                const scoreText = `${score.name} - ${score.score}`;
                 if (score.sessionId) {
-                    listItem.innerHTML = `<a href="replay.html?sessionId=${score.sessionId}" target="_blank">${score.name} - ${score.score}</a>`;
+                    listItem.innerHTML = `<span class="rank">${rank}.</span> <a href="replay.html?sessionId=${score.sessionId}" target="_blank">${scoreText}</a>`;
                 } else {
-                    listItem.textContent = `${score.name} - ${score.score}`;
+                    listItem.innerHTML = `<span class="rank">${rank}.</span> ${scoreText}`;
                 }
                 listContainer.appendChild(listItem);
             });
@@ -310,6 +312,15 @@ class OverlayManager {
             .overlay-content ul.high-score-list li {
                 padding: 0.5rem 1rem;
                 border-bottom: 1px solid #eee;
+                display: flex; /* Use flexbox for alignment */
+                align-items: center;
+            }
+            .overlay-content ul.high-score-list li .rank {
+                font-weight: bold;
+                color: #888;
+                margin-right: 1rem;
+                min-width: 2em; /* Ensure alignment */
+                text-align: right;
             }
             .overlay-content ul.high-score-list li:last-child {
                 border-bottom: none;

@@ -111,17 +111,17 @@ export default class Game {
         // 7. Initialize entities (sets their .hex property and initializes components).
         this.initializeEntities(mapConfig);
 
-        // 8. Run an initial visibility check. This updates the data model.
-        // This ensures the tiles around the player are visible from the start.
-        this.visibilitySystem?.updateVisibility();
-        this.detectionSystem?.checkDetection();
-
         // 9. Trigger the first render.
         // The renderer will now draw the map with the correct initial visibility.
         this.eventBus.publish('mapLoaded', { mapConfig, entities: allEntities });
 
         // 10. Add event listeners for interaction
         this.addEventListeners();
+
+        // 11. Run an initial visibility and detection check AFTER the map has been rendered.
+        // This ensures the renderer has created the FOW elements before trying to update them.
+        this.visibilitySystem?.updateVisibility();
+        this.detectionSystem?.checkDetection();
 
         // 11. Generate initial intents now that the map and entities are fully initialized.
         // This must happen after all systems are set and the map is ready.
