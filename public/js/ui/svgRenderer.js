@@ -76,7 +76,6 @@ class SVGRenderer {
         this._addListener('mapLoaded', this.renderFullMap);
         this._addListener('visibilityUpdated', this.updateMapVisibility);
         this._addListener('entityMoved', (payload) => this.updateEntityPosition(payload.entityId));
-        this._addListener('entityCreated', (payload) => this.addEntityToRender(payload.entity));
         this._addListener('entityRemoved', (payload) => this.removeEntityFromRender(payload.entityId));
         this._addListener('intentsDeclared', this.updateEnemyIntents);
         this._addListener('entityHealthChanged', (payload) => this.updateHealthBar(payload.entityId));
@@ -298,9 +297,21 @@ class SVGRenderer {
      * @param {object} entity - The entity object to render.
      */
     addEntityToRender(entity) {
-        if (!this.layers.entities || !entity || !entity.getComponent('renderable') || this.entityElements.has(entity.id)) {
+        // --- Start of Diagnostic Logging ---
+        if (!entity) {
+            console.warn("[SVGRenderer] addEntityToRender called with a null entity.");
+            return;
+        }
+        if (this.entityElements.has(entity.id)) {
+            // This check is important to prevent duplicate elements if an event fires unexpectedly.
+            console.warn(`[SVGRenderer] addEntityToRender skipped for ${entity.name}: Entity visual already exists.`);
+            return;
+        }
+        if (!entity.getComponent('renderable')) {
+            console.warn(`[SVGRenderer] addEntityToRender skipped for ${entity.name}: Entity is missing a RenderableComponent.`);
             return; // Already rendered or invalid entity
         }
+        // --- End of Diagnostic Logging ---
 
         const renderable = entity.getComponent('renderable');
         const { x, y } = this._hexToScreen(entity.hex);
