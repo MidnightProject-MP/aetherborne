@@ -773,19 +773,14 @@ export default class Game {
     handleGameOver(message) {
         if (this.gameState.isGameOver) return;
         this.gameState.setGameOver(true);
-
-        // Use setTimeout to push the gameOver event to the end of the execution queue.
-        // This prevents a deadlock where the game-over logic is triggered by an animation's
-        // completion event, but the animation promise hasn't resolved yet, leaving
-        // flags like `isAnimating` stuck in a `true` state.
-        setTimeout(() => {
-            this.eventBus.publish('gameOver', {
-                message: message,
-                score: this.player?.getComponent('stats')?.xp || 0,
-                characterData: this.characterData,
-                replayData: { sessionId: this.sessionId, replayLog: this.replayLog }
-            });
-        }, 0);
+        // The gameOver event is now published synchronously to prevent race conditions
+        // with the turn-end logic. The previous 'setTimeout' was causing an infinite loop.
+        this.eventBus.publish('gameOver', {
+            message: message,
+            score: this.player?.getComponent('stats')?.xp || 0,
+            characterData: this.characterData,
+            replayData: { sessionId: this.sessionId, replayLog: this.replayLog }
+        });
     }
 
     endPlayerTurn() {
@@ -795,6 +790,7 @@ export default class Game {
     }
 
     checkPlayerTurnConditions() {
+        if (this.gameState.isGameOver) return; // Explicitly stop if game is already over.
         if (!this.player?.getComponent('stats')?.isAlive()) {
             this.handleGameOver("Player has been defeated!");
         } else if (this.player?.getComponent('stats')?.getCurrentAP() <= 0) {
