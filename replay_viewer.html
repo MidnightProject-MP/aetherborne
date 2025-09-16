@@ -9,6 +9,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .next-turn-container {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 10;
+        }
+    </style>
 </head>
 <body class="theme-vintage">
 
@@ -26,19 +37,9 @@
         <!-- Replay Controls -->
         <div class="replay-controls">
             <div id="turn-counter" class="turn-counter">Turn: 0 / 0</div>
-            <div class="control-group">
-                <button id="play-pause-btn" class="btn btn-primary">Play</button>
-                <button id="step-forward-btn" class="btn btn-secondary">Step Forward</button>
-            </div>
-            <div class="speed-control">
-                <label for="speed-select">Speed:</label>
-                <select id="speed-select" class="select-dropdown">
-                    <option value="0.5">0.5x</option>
-                    <option value="1" selected>1x</option>
-                    <option value="2">2x</option>
-                    <option value="4">4x</option>
-                </select>
-            </div>
+        </div>
+        <div class="next-turn-container">
+            <button id="next-turn-btn" class="btn btn-primary">Next Turn</button>
         </div>
     </div>
 

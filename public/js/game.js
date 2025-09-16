@@ -76,6 +76,9 @@ export default class Game {
             return;
         }
 
+        // Publish map name for the HUD
+        this.eventBus.publish('mapInfoLoaded', { name: mapConfig.name || 'An Unknown Realm' });
+
         // 3. Create the final layout and renderer. The origin is (0,0) as viewBox will handle positioning.
         this.layout = new Layout(Layout.flat, this.hexSize, new Point(0, 0));
         this.gameMap = new GameMap(this.eventBus, this.layout, this.rng); // Pass the seeded RNG to the map

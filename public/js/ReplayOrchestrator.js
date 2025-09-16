@@ -13,16 +13,11 @@ export class ReplayOrchestrator {
         this.replayData = null;
         this.config = null;
         this.currentTurn = 0;
-        this.isPlaying = false;
-        this.baseSpeed = 1000; // ms per turn at 1x speed
-        this.playbackSpeed = this.baseSpeed;
-        this.playbackTimeout = null;
 
-        this.playPauseBtn = document.getElementById('play-pause-btn');
-        this.stepForwardBtn = document.getElementById('step-forward-btn');
+        // The only control is the "Next Turn" button.
+        this.nextTurnBtn = document.getElementById('next-turn-btn');
         this.turnCounter = document.getElementById('turn-counter');
         this.statusMessage = document.getElementById('status-message');
-        this.speedSelect = document.getElementById('speed-select');
 
         this.eventBus.subscribe('mapTransitionRequest', this.handleMapTransition.bind(this));
     }
@@ -93,45 +88,13 @@ export class ReplayOrchestrator {
     }
 
     bindUIControls() {
-        this.playPauseBtn.addEventListener('click', () => this.togglePlayback());
-        this.stepForwardBtn.addEventListener('click', () => this.stepForward());
-        this.speedSelect.addEventListener('change', (e) => this.changeSpeed(e.target.value));
+        this.nextTurnBtn.addEventListener('click', () => this.nextTurn());
     }
 
-    togglePlayback() {
-        this.isPlaying = !this.isPlaying;
-        if (this.isPlaying) {
-            this.playPauseBtn.textContent = 'Pause';
-            this.playNextTurn();
-        } else {
-            this.playPauseBtn.textContent = 'Play';
-            if (this.playbackTimeout) {
-                clearTimeout(this.playbackTimeout);
-            }
-        }
-    }
-
-    async playNextTurn() {
-        if (!this.isPlaying || this.currentTurn >= this.replayData.replayLog.length) {
-            this.handleReplayEnd('Replay finished.');
-            return;
-        }
-
-        const success = await this.executeTurn(this.currentTurn);
-
-        if (!success) {
-            this.handleReplayEnd(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`, true);
-            return;
-        }
-
-        this.currentTurn++;
-        this.updateTurnCounter();
-
-        this.playbackTimeout = setTimeout(() => this.playNextTurn(), this.playbackSpeed);
-    }
-
-    async stepForward() {
-        if (this.isPlaying) return; // Only step when paused
+    /**
+     * Executes the next turn in the replay log.
+     */
+    async nextTurn() {
         if (this.currentTurn >= this.replayData.replayLog.length) {
             this.handleReplayEnd('Replay finished.');
             return;
@@ -145,11 +108,6 @@ export class ReplayOrchestrator {
         } else {
             this.handleReplayEnd(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`, true);
         }
-    }
-
-    changeSpeed(multiplier) {
-        const multi = parseFloat(multiplier);
-        this.playbackSpeed = this.baseSpeed / multi;
     }
 
     async executeTurn(turnIndex) {
@@ -185,9 +143,6 @@ export class ReplayOrchestrator {
     async handleMapTransition({ nextMapId, entityId }) {
         if (this.gameInstance.player.id !== entityId) return;
 
-        const wasPlaying = this.isPlaying;
-        if (wasPlaying) this.togglePlayback(); // Pause
-
         if (!nextMapId) {
             this.handleReplayEnd('Dungeon Completed! Replay finished.');
             return;
@@ -209,7 +164,6 @@ export class ReplayOrchestrator {
             await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, playerToPreserve);
             
             this.hideMessage();
-            if (wasPlaying) this.togglePlayback(); // Resume
         } catch (error) {
             this.showError(`Failed to transition map: ${error.message}`);
         }
@@ -225,11 +179,7 @@ export class ReplayOrchestrator {
         } else {
             this.showMessage(message, true);
         }
-        this.playPauseBtn.disabled = true;
-        this.stepForwardBtn.disabled = true;
-        if (this.isPlaying) {
-            this.togglePlayback(); // Stop playback
-        }
+        this.nextTurnBtn.disabled = true;
     }
 
     showMessage(message, isEnd = false) {

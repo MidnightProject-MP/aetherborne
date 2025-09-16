@@ -23,7 +23,8 @@ class PlayerHUD {
             skillBar: document.getElementById('skill-bar'),
             tensionLevel: document.getElementById('tension-level'),
             turnIndicator: document.getElementById('turn-indicator'),
-            endTurnButton: document.getElementById('end-turn-button')
+            endTurnButton: document.getElementById('end-turn-button'),
+            mapNameDisplay: document.getElementById('map-name-display') // New
         };
 
         this.handleEndTurnClick = () => {
@@ -59,6 +60,10 @@ class PlayerHUD {
             if (payload && payload.currentTurn) {
                 this.updateTurnIndicator(payload.currentTurn);
             }
+        });
+        // New: Listen for map info to update the display
+        this.eventBus.subscribe('mapInfoLoaded', (payload) => {
+            this.updateMapName(payload.name);
         });
         this.eventBus.subscribe('gameMapReady', () => {
             console.log("[PlayerHUD] gameMapReady event received. HUD should be fully functional.");
@@ -150,6 +155,16 @@ class PlayerHUD {
             if (isPlayerTurn) {
                 this.uiElements.endTurnButton.addEventListener('click', this.handleEndTurnClick);
             }
+        }
+    }
+
+    /**
+     * Updates the map name display on the HUD.
+     * @param {string} name - The name of the current map.
+     */
+    updateMapName(name) {
+        if (this.uiElements.mapNameDisplay && !this.disabled) {
+            this.uiElements.mapNameDisplay.textContent = name || 'An Unknown Realm';
         }
     }
 
