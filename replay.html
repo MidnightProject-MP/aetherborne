@@ -57,7 +57,15 @@
     <div id="replay-viewer">
         <div id="status-message"></div>
         <div id="map-container">
-            <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg id="map" preserveAspectRatio="xMidYMid meet">
+                <g id="map-layer"></g>
+                <g id="fog-layer"></g>
+                <g id="entity-layer"></g>
+                <g id="entity-ui-layer"></g>
+                <g id="range-preview-layer"></g>
+                <g id="path-preview-layer"></g>
+                <g id="effect-preview-layer"></g>
+            </svg>
         </div>
         <div id="replay-controls">
             <div id="turn-counter">Turn: 0 / 0</div>

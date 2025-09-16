@@ -1,5 +1,6 @@
-import { Game } from './game.js';
+import Game from './game.js';
 import { getReplay, getGameConfig } from './apiService.js';
+import CONFIG from './config.js';
 import StatusEffectSystem from './systems/statusEffectSystem.js';
 import VisibilitySystem from './systems/visibilitySystem.js';
 import TargetPreviewSystem from './systems/targetPreviewSystem.js';
@@ -40,7 +41,11 @@ export class ReplayOrchestrator {
             ]);
 
             this.replayData = replayData;
-            this.config = { ...dynamicConfig }; // Config now fully comes from server
+            // The server sends a minimal `entityBlueprints` object. We must ignore it
+            // and use the client's complete version from the local CONFIG.
+            delete dynamicConfig.entityBlueprints;
+            // Merge the dynamic config from the server with the static client config.
+            this.config = { ...CONFIG, ...dynamicConfig };
 
             this.showMessage('Initializing game...');
             await this.initializeGame();
