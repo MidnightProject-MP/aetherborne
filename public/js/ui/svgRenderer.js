@@ -212,7 +212,10 @@ class SVGRenderer {
      * This is typically called once when a new map is loaded.
      */
     renderFullMap({ mapConfig, entities }) {
-        console.log("[SVGRenderer] Rendering full map...");
+        console.log("[SVGRenderer] --- renderFullMap START ---");
+        // Log the data received from the event for debugging purposes.
+        console.log(`[SVGRenderer] 'mapLoaded' event received. Payload contains ${entities.length} entities.`);
+
         if (!this.layers.map || !this.layers.fog || !this.layers.entities) {
             console.error("[SVGRenderer] Critical layer (map, fog, or entities) not found for full render.");
             return;
@@ -252,11 +255,17 @@ class SVGRenderer {
         console.log(`[SVGRenderer] Rendered ${this.tileElements.size} tiles.`);
 
         // Render Entities
-        // Use the entities array passed directly from the event payload.
-        for (const entity of entities) {
-            this.addEntityToRender(entity);
+        // The authoritative source for entities is the gameMap instance, which is guaranteed
+        // to be fully initialized at this point. This avoids race conditions with the event payload.
+        const entitiesFromMap = this.game.gameMap.entities;
+        console.log(`[SVGRenderer] Attempting to render entities from gameMap. Found ${entitiesFromMap.size} entities.`);
+
+        for (const entity of entitiesFromMap.values()) {
+            // The addEntityToRender function handles the actual creation of the SVG element.
+             this.addEntityToRender(entity);
         }
-        console.log(`[SVGRenderer] Rendered ${this.entityElements.size} entities.`);
+        console.log(`[SVGRenderer] Finished rendering. Final rendered entity count: ${this.entityElements.size}.`);
+        console.log("[SVGRenderer] --- renderFullMap END ---");
     }
 
     /**
