@@ -83,7 +83,7 @@ export class ReplayOrchestrator {
         new TargetPreviewSystem(this.eventBus, this.gameInstance, this.gameInstance.interactionModel);
 
         // Initialize the map and entities
-        await this.gameInstance.initializeLayoutAndMap(characterData);
+        await this.gameInstance.initializeLayoutAndMap(characterData, sessionData.mapTemplate);
         console.log('[ReplayOrchestrator] Game instance created and initialized for replay.');
     }
 
@@ -161,7 +161,7 @@ export class ReplayOrchestrator {
             this.gameInstance._cleanupForTransition();
             // 3. Set the new map template and re-initialize the game instance.
             this.gameInstance.sessionData.mapTemplate = newMapTemplate;
-            await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, playerToPreserve);
+            await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, newMapTemplate.maptemplate, playerToPreserve);
             
             this.hideMessage();
         } catch (error) {

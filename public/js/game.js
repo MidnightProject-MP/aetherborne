@@ -51,7 +51,7 @@ export default class Game {
         this._setupEventListeners();
     }
 
-    async initializeLayoutAndMap(characterData, existingPlayer = null) {
+    async initializeLayoutAndMap(characterData, mapConfig, existingPlayer = null) {
         this.characterData = characterData;
 
         // 1. Wait for mapContainer to be ready
@@ -68,7 +68,6 @@ export default class Game {
         });
 
         // 2. Get map configuration
-        const mapConfig = this.sessionData.mapTemplate;
         const mapId = mapConfig.id; // Assuming the template has an ID
 
         if (!mapConfig) {
@@ -483,7 +482,7 @@ export default class Game {
         this.characterData.currentMapId = nextMapId;
 
         // 2. Re-initialize the game with the new map configuration.
-        await this.initializeLayoutAndMap(this.characterData, playerToPreserve);
+        await this.initializeLayoutAndMap(this.characterData, newMapTemplate.maptemplate, playerToPreserve);
         console.log(`[Game] Map transition to '${nextMapId}' complete.`);
     }
 
@@ -492,11 +491,15 @@ export default class Game {
      * @private
      */
     _cleanupForTransition() {
+        console.log('[Game] Cleaning up for map transition...');
         this.removeEventListeners();
+        if (this.renderer) {
+            this.renderer.destroy();
+            this.renderer = null;
+        }
         this.layout = null;
         this.gameMap = null;
         this._intentsPrimed = false;
-        // The renderer will be recreated in initializeLayoutAndMap, which handles clearing the SVG.
     }
 
     async resolveSkillAction(actor, details) {

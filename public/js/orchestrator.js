@@ -276,8 +276,8 @@ export class LiveGameOrchestrator {
         this.gameInstance.setStatusEffectSystem(this.statusEffectSystem);
         this.targetPreviewSystem = new TargetPreviewSystem(this.eventBus, this.gameInstance, this.gameInstance.interactionModel);
 
-        // 10. Now, initialize the map layout and entities. This will use the systems we just set up.
-        await this.gameInstance.initializeLayoutAndMap(characterData);
+        // 10. Now, initialize the map layout and entities, passing the authoritative map template.
+        await this.gameInstance.initializeLayoutAndMap(characterData, sessionData.mapTemplate);
         if (!this.gameInstance.player) {
             console.error("[LiveGameOrchestrator] Game instance failed to create player. Aborting.");
             return;

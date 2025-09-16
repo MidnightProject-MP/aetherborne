@@ -50,9 +50,22 @@ class SVGRenderer {
         this.tileElements = new Map();   // Map<tileKey (q,r), SVGElement>
         this.fowElements = new Map();    // Map<tileKey (q,r), SVGElement> for FOW covers
         this.activeAnimations = new Map(); // Map<entityId, animationState>
+        this.listeners = new Map(); // To track event listeners for easy removal
 
         this._setupEventListeners();
         this.clearAllPreviews(); // Clear any initial previews
+    }
+
+    /**
+     * A helper to bind and store event listeners for easy removal later.
+     * @param {string} event - The name of the event.
+     * @param {function} callback - The callback function to execute.
+     * @private
+     */
+    _addListener(event, callback) {
+        const boundCallback = callback.bind(this);
+        this.listeners.set(event, boundCallback);
+        this.eventBus.subscribe(event, boundCallback);
     }
 
     /**
@@ -60,18 +73,28 @@ class SVGRenderer {
      * @private
      */
     _setupEventListeners() {
-        this.eventBus.subscribe('mapLoaded', () => this.renderFullMap());
-        this.eventBus.subscribe('visibilityUpdated', () => this.updateMapVisibility());
-        this.eventBus.subscribe('entityMoved', (payload) => this.updateEntityPosition(payload.entityId));
-        this.eventBus.subscribe('entityCreated', (payload) => this.addEntityToRender(payload.entity));
-        this.eventBus.subscribe('entityRemoved', (payload) => this.removeEntityFromRender(payload.entityId));
-        this.eventBus.subscribe('intentsDeclared', () => this.updateEnemyIntents());
-        this.eventBus.subscribe('entityHealthChanged', (payload) => this.updateHealthBar(payload.entityId));
-        this.eventBus.subscribe('statusEffectApplied', (payload) => this.addStatusEffectIcon(payload.entityId, payload.effect));
-        this.eventBus.subscribe('entityVisibilityChanged', (payload) => this.updateEntityVisibility(payload.entityId, payload.isVisible)); // New subscription
-        this.eventBus.subscribe('statusEffectExpired', (payload) => this.removeStatusEffectIcon(payload.entityId, payload.effects));
-        // NEW: Subscribe to the animation request event
-        this.eventBus.subscribe('entityAnimateMove', (payload) => this._handleAnimationRequest(payload));
+        this._addListener('mapLoaded', this.renderFullMap);
+        this._addListener('visibilityUpdated', this.updateMapVisibility);
+        this._addListener('entityMoved', (payload) => this.updateEntityPosition(payload.entityId));
+        this._addListener('entityCreated', (payload) => this.addEntityToRender(payload.entity));
+        this._addListener('entityRemoved', (payload) => this.removeEntityFromRender(payload.entityId));
+        this._addListener('intentsDeclared', this.updateEnemyIntents);
+        this._addListener('entityHealthChanged', (payload) => this.updateHealthBar(payload.entityId));
+        this._addListener('statusEffectApplied', (payload) => this.addStatusEffectIcon(payload.entityId, payload.effect));
+        this._addListener('entityVisibilityChanged', (payload) => this.updateEntityVisibility(payload.entityId, payload.isVisible));
+        this._addListener('statusEffectExpired', (payload) => this.removeStatusEffectIcon(payload.entityId, payload.effects));
+        this._addListener('entityAnimateMove', this._handleAnimationRequest);
+    }
+
+    /**
+     * Unsubscribes all event listeners and cleans up the renderer.
+     */
+    destroy() {
+        console.log('[SVGRenderer] Destroying and unsubscribing from events.');
+        for (const [event, callback] of this.listeners.entries()) {
+            this.eventBus.unsubscribe(event, callback);
+        }
+        this.svgElement.innerHTML = ''; // Clear all layers
     }
 
     /**

@@ -162,6 +162,7 @@ function logPlayerReplay(sheetName, sessionId, seed, mapTemplate, replayLog, fin
  * Fetches and returns the top 10 high scores from the 'HighScores' sheet.
  */
 function handleGetHighScores() {
+  Logger.log('Action: handleGetHighScores');
   const sheet = getSheet('HighScores');
   if (!sheet) return [];
   
@@ -246,6 +247,7 @@ function sheetToObjects(sheet) {
  * Fetches all core game configuration data from their respective sheets.
  */
 function handleGetGameConfig() {
+    Logger.log('Action: handleGetGameConfig');
     const cache = CacheService.getScriptCache();
     const cacheKey = 'gameConfig_v2'; // Use a versioned key to easily invalidate if structure changes.
 
@@ -288,6 +290,7 @@ function handleGetGameConfig() {
  * @returns {Object} A characterData object ready for the client.
  */
 function handleGetPlayerData(payload) {
+    Logger.log(`Action: handleGetPlayerData, Payload: ${JSON.stringify(payload)}`);
     const playerId = payload.playerId;
     if (!playerId) {
         throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
@@ -403,6 +406,7 @@ function doGet(e) {
  * @returns {Object} The full replay data object.
  */
 function handleGetReplay(payload) {
+    Logger.log(`Action: handleGetReplay, Payload: ${JSON.stringify(payload)}`);
     const sessionId = payload.sessionId;
     if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
 
@@ -424,6 +428,7 @@ function handleGetReplay(payload) {
  * Fetches and returns all players from the 'Players' sheet.
  */
 function handleGetPlayers() {
+    Logger.log('Action: handleGetPlayers');
     const sheet = getSheet('Players');
     if (!sheet) return [];
     const data = sheet.getDataRange().getValues();
@@ -447,6 +452,7 @@ function handleGetPlayers() {
  * Adds a new player to the 'Players' sheet.
  */
 function handleAddPlayer(payload) {
+    Logger.log(`Action: handleAddPlayer, Payload: ${JSON.stringify(payload)}`);
     const { playerId, name, archetypeId, currentMapId } = payload;
     if (!playerId || !name || !archetypeId || !currentMapId) {
         throw new Error("Payload for 'addPlayer' must include 'playerId', 'name', 'archetypeId', and 'currentMapId'.");
@@ -466,6 +472,7 @@ function handleAddPlayer(payload) {
  * Handles a test POST request.
  */
 function handleTestPost() {
+    Logger.log('Action: handleTestPost');
     return { status: 'success', message: 'hello world!' };
 }
 
@@ -473,11 +480,13 @@ function handleTestPost() {
  * Handles score submission.
  */
 function handleSubmitScore(payload) {
-    const { name, score } = payload;
-    if (!name || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'name' (string) and 'score' (number).");
+    Logger.log(`Action: handleSubmitScore, Payload: ${JSON.stringify(payload)}`);
+    const { sessionId, score } = payload;
+    if (!sessionId || typeof score !== 'number') throw new Error("Payload for 'submitScore' must include 'sessionId' (string) and 'score' (number).");
     
     const sheet = getSheet('HighScores');
-    sheet.appendRow([name, score, new Date()]);
+    // The sheet structure is: session_id, score, timestamp
+    sheet.appendRow([sessionId, score, new Date()]);
     return { status: 'success', message: 'Score submitted.' };
 }
 
@@ -485,6 +494,7 @@ function handleSubmitScore(payload) {
  * Handles starting a new game session.
  */
 function handleNewGame(payload) {
+    Logger.log(`Action: handleNewGame, Payload: ${JSON.stringify(payload)}`);
     let { mapId, characterData } = payload;
     if (!mapId || !characterData) {
         throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
@@ -518,6 +528,7 @@ function handleNewGame(payload) {
  * Handles updating a player's persistent state.
  */
 function handleUpdatePlayerState(payload) {
+    Logger.log(`Action: handleUpdatePlayerState, Payload: ${JSON.stringify(payload)}`);
     const { playerId, finalState } = payload;
     if (!playerId || !finalState) {
         throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
@@ -561,6 +572,7 @@ function handleUpdatePlayerState(payload) {
  * Handles submission of a player's game replay for validation.
  */
 function handleSubmitReplay(payload) {
+    Logger.log(`Action: handleSubmitReplay, Payload: ${JSON.stringify(payload)}`);
     const { sessionId, replayLog, finalStateClient, playerName } = payload;
     if (!sessionId || !replayLog || !finalStateClient || !playerName) {
         throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', 'finalStateClient', and 'playerName'.");
@@ -702,6 +714,26 @@ function testGetPlayerData() {
     Logger.log(JSON.stringify(responseData, null, 2));
   } catch (e) {
     Logger.log(`❌ ERROR in handleGetPlayerData: ${e.toString()}`);
+    Logger.log(`Stack Trace: ${e.stack}`);
+  }
+}
+
+/**
+ * A test function to debug the handleSubmitScore action directly in the Apps Script editor.
+ */
+function testSubmitScore() {
+  const mockPayload = {
+    sessionId: 'test-session-' + new Date().getTime(),
+    score: Math.floor(Math.random() * 1000)
+  };
+
+  try {
+    const responseData = handleSubmitScore(mockPayload);
+    Logger.log("✅ SUCCESS: handleSubmitScore returned:");
+    // Pretty-print the JSON for readability in the logs.
+    Logger.log(JSON.stringify(responseData, null, 2));
+  } catch (e) {
+    Logger.log(`❌ ERROR in handleSubmitScore: ${e.toString()}`);
     Logger.log(`Stack Trace: ${e.stack}`);
   }
 }
