@@ -211,7 +211,7 @@ class SVGRenderer {
      * Renders the entire game map, including tiles and all initial entities.
      * This is typically called once when a new map is loaded.
      */
-    renderFullMap() {
+    renderFullMap({ mapConfig, entities }) {
         console.log("[SVGRenderer] Rendering full map...");
         if (!this.layers.map || !this.layers.fog || !this.layers.entities) {
             console.error("[SVGRenderer] Critical layer (map, fog, or entities) not found for full render.");
@@ -225,12 +225,11 @@ class SVGRenderer {
         this.tileElements.clear();
         this.entityElements.clear();
 
-        const gameMap = this.game.gameMap;
         const layout = this.game.layout;
         const polygonPoints = layout.polygonPoints;
 
         // Render Tiles
-        gameMap.getAllTiles().forEach(tile => {
+        mapConfig.tiles.forEach(tile => {
             const { x, y } = this._hexToScreen(tile);
             const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
             polygon.setAttribute("points", polygonPoints);
@@ -252,14 +251,11 @@ class SVGRenderer {
         console.log(`[SVGRenderer] Rendered ${this.tileElements.size} tiles.`);
 
         // Render Entities
-        // Iterate through gameMap.entities (which is a Map<id, entity>)
-        for (const entity of gameMap.entities.values()) {
+        // Use the entities array passed directly from the event payload.
+        for (const entity of entities) {
             this.addEntityToRender(entity);
         }
         console.log(`[SVGRenderer] Rendered ${this.entityElements.size} entities.`);
-
-        // Initial visibility update (Fog of War)
-        this.updateMapVisibility();
     }
 
     /**

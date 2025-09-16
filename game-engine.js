@@ -180,7 +180,7 @@ class GameEngine {
         const target = this.gameState.entities.get(targetId);
 
         if (!target) {
-            Logger.log(`[GameEngine] Could not find target entity with ID ${targetId}. It might be on a subsequent map.`);
+            console.log(`[GameEngine] Could not find target entity with ID ${targetId}. It might be on a subsequent map.`);
             return;
         }
 
@@ -190,7 +190,7 @@ class GameEngine {
             if (target.stats.hp <= 0) {
                 player.stats.xp += target.stats.xp || 10;
                 this.gameState.entities.delete(target.id);
-                Logger.log(`[GameEngine] Player defeated ${target.name} and gained ${target.stats.xp || 10} XP. Total XP: ${player.stats.xp}`);
+                console.log(`[GameEngine] Player defeated ${target.name} and gained ${target.stats.xp || 10} XP. Total XP: ${player.stats.xp}`);
             }
             return;
         }
@@ -199,11 +199,11 @@ class GameEngine {
         if (target.type === 'portal') {
             const nextMapId = target.nextMapId;
             if (nextMapId) {
-                Logger.log(`[GameEngine] Player interacted with portal ${target.name}. Transitioning to map ${nextMapId}.`);
+                console.log(`[GameEngine] Player interacted with portal ${target.name}. Transitioning to map ${nextMapId}.`);
                 const newMapTemplate = this.gameConfig.maps[nextMapId]?.maptemplate;
 
                 if (!newMapTemplate) {
-                    Logger.log(`[GameEngine] ERROR - Could not find map template for ${nextMapId}. Halting transition.`);
+                    console.log(`[GameEngine] ERROR - Could not find map template for ${nextMapId}. Halting transition.`);
                     return;
                 }
 
@@ -214,7 +214,7 @@ class GameEngine {
                 this.initializeEntitiesForNewMap();
 
             } else {
-                Logger.log(`[GameEngine] Player interacted with final portal. Dungeon complete.`);
+                console.log(`[GameEngine] Player interacted with final portal. Dungeon complete.`);
             }
         }
     }
@@ -235,12 +235,12 @@ class GameEngine {
         const skillConfig = this.gameConfig.skills[skillId];
 
         if (!skillConfig) {
-            Logger.log(`[GameEngine] Player tried to use unknown skill: ${skillId}`);
+            console.log(`[GameEngine] Player tried to use unknown skill: ${skillId}`);
             return;
         }
 
         // This is a very simplified simulation. A real one would check AP, MP, cooldowns, etc.
-        Logger.log(`[GameEngine] Player uses skill: ${skillConfig.name}`);
+        console.log(`[GameEngine] Player uses skill: ${skillConfig.name}`);
 
         for (const effect of skillConfig.effects) {
             switch (effect.type) {
@@ -259,11 +259,11 @@ class GameEngine {
                             const damage = effect.baseAmount || 10;
                             if (entity.stats && entity.stats.hp > 0) {
                                 entity.stats.hp -= damage;
-                                Logger.log(`[GameEngine] Skill hits ${entity.name} for ${damage} damage.`);
+                                console.log(`[GameEngine] Skill hits ${entity.name} for ${damage} damage.`);
                                 if (entity.stats.hp <= 0) {
                                     player.stats.xp += entity.stats.xp || 10;
                                     this.gameState.entities.delete(entity.id);
-                                    Logger.log(`[GameEngine] Player defeated ${entity.name} with a skill.`);
+                                    console.log(`[GameEngine] Player defeated ${entity.name} with a skill.`);
                                 }
                             }
                         }
@@ -351,7 +351,7 @@ function logPlayerReplay(sheetName, sessionId, replayLog, finalState, isVerified
  * Fetches and returns the top 10 high scores from the 'HighScores' sheet.
  */
 function handleGetHighScores() {
-  Logger.log('Action: handleGetHighScores');
+  console.log('Action: handleGetHighScores');
   const sheet = getSheet('HighScores');
   if (!sheet) return [];
   
@@ -438,7 +438,7 @@ function sheetToObjects(sheet) {
  * Fetches all core game configuration data from their respective sheets.
  */
 function handleGetGameConfig() {
-    Logger.log('Action: handleGetGameConfig');
+    console.log('Action: handleGetGameConfig');
     const cache = CacheService.getScriptCache();
     const cacheKey = 'gameConfig_v2'; // Use a versioned key to easily invalidate if structure changes.
 
@@ -503,7 +503,7 @@ function handleGetGameConfig() {
  * @returns {Object} A characterData object ready for the client.
  */
 function handleGetPlayerData(payload) {
-    Logger.log(`Action: handleGetPlayerData, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleGetPlayerData, Payload: ${JSON.stringify(payload)}`);
     const playerId = payload.playerId;
     if (!playerId) {
         throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
@@ -619,7 +619,7 @@ function doGet(e) {
  * @returns {Object} The full replay data object.
  */
 function handleGetReplay(payload) {
-    Logger.log(`Action: handleGetReplay, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleGetReplay, Payload: ${JSON.stringify(payload)}`);
     const sessionId = payload.sessionId;
     if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
 
@@ -669,7 +669,7 @@ function handleGetReplay(payload) {
  * Fetches and returns all players from the 'Players' sheet.
  */
 function handleGetPlayers() {
-    Logger.log('Action: handleGetPlayers');
+    console.log('Action: handleGetPlayers');
     const sheet = getSheet('Players');
     if (!sheet) return [];
     const data = sheet.getDataRange().getValues();
@@ -693,7 +693,7 @@ function handleGetPlayers() {
  * Adds a new player to the 'Players' sheet.
  */
 function handleAddPlayer(payload) {
-    Logger.log(`Action: handleAddPlayer, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleAddPlayer, Payload: ${JSON.stringify(payload)}`);
     const { playerId, name, archetypeId, currentMapId } = payload;
     if (!playerId || !name || !archetypeId || !currentMapId) {
         throw new Error("Payload for 'addPlayer' must include 'playerId', 'name', 'archetypeId', and 'currentMapId'.");
@@ -713,7 +713,7 @@ function handleAddPlayer(payload) {
  * Handles a test POST request.
  */
 function handleTestPost() {
-    Logger.log('Action: handleTestPost');
+    console.log('Action: handleTestPost');
     return { status: 'success', message: 'hello world!' };
 }
 
@@ -721,7 +721,7 @@ function handleTestPost() {
  * Handles starting a new game session.
  */
 function handleNewGame(payload) {
-    Logger.log(`Action: handleNewGame, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleNewGame, Payload: ${JSON.stringify(payload)}`);
     let { mapId, characterData } = payload;
     if (!mapId || !characterData) {
         throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
@@ -765,7 +765,7 @@ function handleNewGame(payload) {
  * Handles updating a player's persistent state.
  */
 function handleUpdatePlayerState(payload) {
-    Logger.log(`Action: handleUpdatePlayerState, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleUpdatePlayerState, Payload: ${JSON.stringify(payload)}`);
     const { playerId, finalState } = payload;
     if (!playerId || !finalState) {
         throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
@@ -809,7 +809,7 @@ function handleUpdatePlayerState(payload) {
  * Handles submission of a player's game replay for validation.
  */
 function handleSubmitReplay(payload) {
-    Logger.log(`Action: handleSubmitReplay, Payload: ${JSON.stringify(payload)}`);
+    console.log(`Action: handleSubmitReplay, Payload: ${JSON.stringify(payload)}`);
     const { sessionId, replayLog, playerName } = payload;
     if (!sessionId || !replayLog || !playerName) {
         throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', and 'playerName'.");
@@ -947,8 +947,8 @@ function doPost(e) {
 
   try {
     // Log the key elements of the request as requested.
-    Logger.log(`--- API Request Received ---`);
-    Logger.log(`Request Body: ${requestBody}`);
+    console.log(`--- API Request Received ---`);
+    console.log(`Request Body: ${requestBody}`);
 
     const request = JSON.parse(requestBody);
     const action = request.action;
@@ -993,9 +993,9 @@ function doPost(e) {
     // Log the full stack trace for better debugging in Apps Script logs.
     console.error('doPost Error:', error.stack);
     // Also add a simpler log for quick diagnosis in the execution logs.
-    Logger.log(`--- API Request ERROR ---`);
-    Logger.log(`Failed on request: ${requestBody}`);
-    Logger.log(`Error message: ${error.message}`);
+    console.log(`--- API Request ERROR ---`);
+    console.log(`Failed on request: ${requestBody}`);
+    console.log(`Error message: ${error.message}`);
 
     const errorPayload = {
       status: 'error',
