@@ -229,7 +229,8 @@ class SVGRenderer {
         const polygonPoints = layout.polygonPoints;
 
         // Render Tiles
-        mapConfig.tiles.forEach(tile => {
+        // Use the gameMap instance, which holds the generated grid of tiles.
+        this.game.gameMap.getAllTiles().forEach(tile => {
             const { x, y } = this._hexToScreen(tile);
             const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
             polygon.setAttribute("points", polygonPoints);
