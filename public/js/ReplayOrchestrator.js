@@ -131,10 +131,18 @@ export class ReplayOrchestrator {
         const deserialized = { ...action };
         if (deserialized.details.targetCoords) {
             const { q, r } = deserialized.details.targetCoords;
-            const targetTile = this.gameInstance.gameMap.getTile(q, r);
-            if (!targetTile) return null; // Invalid coords in log
+            const targetHex = this.gameInstance.gameMap.getTile(q, r);
+            if (!targetHex) return null; // Invalid coords in log
 
-            deserialized.details.targetTile = targetTile;
+            // Based on the action type, we need to set the correct property
+            // that the Game engine's resolver expects. The live game's TargetPreviewSystem
+            // uses 'targetHex' for skills and 'targetTile' for general input. We mirror that here.
+            if (action.type === 'skill') {
+                deserialized.details.targetHex = targetHex;
+            } else { // For 'playerInput', 'move', etc.
+                deserialized.details.targetTile = targetHex;
+            }
+            
             delete deserialized.details.targetCoords;
         }
         return deserialized;

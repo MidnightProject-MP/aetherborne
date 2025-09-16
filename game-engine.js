@@ -1,31 +1,90 @@
 /**
  * @fileoverview This file contains the server-side logic for the game.
- * It acts as the AI engine and replay data provider.
+ * It contains a simplified game engine for replay validation and all backend API handlers.
  */
 
-// --- CORE GAME ENGINE (SINGLE SOURCE OF TRUTH) ---
+/**
+ * Generates a UUID-like string using a provided seeded pseudo-random number generator.
+ * This is the server-side equivalent of the client's function in utils.js.
+ * @param {function(): number} rng - The seeded PRNG function.
+ * @returns {string} A new deterministically generated UUID.
+ */
+function generateDeterministicUUID(rng) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = (rng() % 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+/**
+ * A server-side helper to create a plain JavaScript object representing an entity.
+ * It uses the game configuration to build an entity from a blueprint, similar to the client's EntityFactory.
+ * @param {string} type - The type of entity (e.g., 'player', 'goblinScout').
+ * @param {object} properties - Properties from the map file or character data.
+ * @param {object} gameConfig - The full game configuration object.
+ * @returns {object|null} A plain object representing the entity, or null.
+ */
+function createServerEntity(type, properties, gameConfig, rng) {
+    const blueprintType = gameConfig.entityBlueprints[type] ? type : 'enemy';
+    const blueprint = gameConfig.entityBlueprints[blueprintType];
+    if (!blueprint) return null;
+
+    const entity = {
+        // Use the deterministic UUID generator if an ID isn't provided in the properties.
+        id: properties.id || (rng ? generateDeterministicUUID(rng) : ('server-gen-' + Math.random())),
+        type: type,
+        name: properties.name || type,
+        q: properties.q,
+        r: properties.r,
+        ...blueprint.entityProperties,
+        ...properties
+    };
+
+    // Extract stats from the blueprint and properties
+    const statsConfig = blueprint.components.find(c => c.class === 'StatsComponent');
+    if (statsConfig) {
+        let statsArgs = {};
+        if (statsConfig.argsSource === 'entityProperties' && statsConfig.dataSourceKey) {
+            statsArgs = properties[statsConfig.dataSourceKey] || {};
+        } else if (statsConfig.argsSource === 'archetypeBaseStats') {
+            statsArgs = properties.baseStats || {};
+        } else {
+            statsArgs = statsConfig.args || {};
+        }
+        entity.stats = { ...statsArgs };
+    } else {
+        entity.stats = {};
+    }
+
+    // Ensure player has XP property
+    if (type === 'player') {
+        entity.stats.xp = 0;
+    }
+
+    return entity;
+}
+
+
+/**
+ * A stateful, server-side game engine for validating replays.
+ * It's a simplified version of the client's engine but understands entities,
+ * interactions, and map transitions.
+ */
 class GameEngine {
-    constructor(seed, mapTemplate, initialState = null) {
+    constructor(seed, mapTemplate, characterData, gameConfig) {
         this.seed = seed;
         this.mapTemplate = mapTemplate;
+        this.gameConfig = gameConfig;
         this.rng = this.createSeededRNG(this.seed);
-        this.gameState = initialState || {
-            player: {
-                x: 0,
-                y: 0,
-                health: 100,
-                attack_power: 10,
-                level: 1,
-                xp: 0
-            },
-            enemies: []
+        this.gameState = {
+            player: null,
+            entities: new Map() // Use a map for quick lookups by ID
         };
-        if (!initialState) {
-            this.initializeGameState();
-        }
+        this.initializeGameState(characterData);
     }
 
     createSeededRNG(seed) {
+        if (!seed) seed = "default_seed";
         let h = 1779033703 ^ seed.length;
         for (let i = 0; i < seed.length; i++) {
             h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
@@ -38,83 +97,173 @@ class GameEngine {
         };
     }
 
-    initializeGameState() {
-        this.gameState.player.x = 0;
-        this.gameState.player.y = 0;
+    initializeGameState(characterData) {
+        // Create player
+        const player = createServerEntity('player', characterData, this.gameConfig, this.rng);
+        this.gameState.player = player;
+        this.gameState.entities.set(player.id, player);
 
-        for (let y = 0; y < this.mapTemplate.height; y++) {
-            for (let x = 0; x < this.mapTemplate.width; x++) {
-                if (this.mapTemplate.tiles[y][x] === 'floor') {
-                    if (this.rng() % 100 < 10) {
-                        this.gameState.enemies.push({
-                            x: x,
-                            y: y,
-                            health: 20,
-                            attack_power: 5
-                        });
-                    }
+        // Initialize entities for the first map
+        this.initializeEntitiesForNewMap();
+    }
+
+    initializeEntitiesForNewMap() {
+        // Place player at new start position
+        const playerStart = this.mapTemplate.playerStart;
+        if (playerStart) {
+            this.gameState.player.q = playerStart.q;
+            this.gameState.player.r = playerStart.r;
+        }
+
+        // Create other entities from map config
+        if (!this.mapTemplate.entities) return;
+        for (const category in this.mapTemplate.entities) {
+            for (const entityConfig of this.mapTemplate.entities[category]) {
+                const entity = createServerEntity(entityConfig.type, entityConfig, this.gameConfig, this.rng);
+                if (entity) {
+                    this.gameState.entities.set(entity.id, entity);
                 }
             }
         }
     }
 
-    isValidMove(x, y) {
-        if (x < 0 || x >= this.mapTemplate.width || y < 0 || y >= this.mapTemplate.height) {
-            return false;
-        }
-        return this.mapTemplate.tiles[y][x] === 'floor';
+    executeMove(targetCoords) {
+        const player = this.gameState.player;
+        player.q = targetCoords.q;
+        player.r = targetCoords.r;
     }
 
-    executeMove(move) {
-        const nextState = JSON.parse(JSON.stringify(this.gameState)); // Deep copy to avoid side effects
-        
-        if (!this.isValidMove(move.x, move.y)) {
-            return nextState;
+    executePlayerInput(targetCoords) {
+        // Find if there's an entity at the target coordinates.
+        // Note: This is a simplified lookup. A real implementation might need a spatial hash.
+        let targetEntity = null;
+        for (const entity of this.gameState.entities.values()) {
+            if (entity.q === targetCoords.q && entity.r === targetCoords.r && entity.id !== this.gameState.player.id) {
+                targetEntity = entity;
+                break;
+            }
         }
 
-        nextState.player.x = move.x;
-        nextState.player.y = move.y;
+        // Same logic as the client: if there's a target, interact. Otherwise, move.
+        if (targetEntity) {
+            this.executeInteraction(targetEntity.id);
+        } else {
+            this.executeMove(targetCoords);
+        }
+    }
 
-        const enemiesAfterMove = [];
-        for (const enemy of nextState.enemies) {
-            if (enemy.x === move.x && enemy.y === move.y) {
-                // Combat logic
-                enemy.health -= nextState.player.attack_power;
-                nextState.player.health -= enemy.attack_power;
-                if (enemy.health > 0) {
-                    enemiesAfterMove.push(enemy);
-                } else {
-                    nextState.player.xp += 10; // Gain XP for defeating enemy
+    executeInteraction(targetId) {
+        const player = this.gameState.player;
+        const target = this.gameState.entities.get(targetId);
+
+        if (!target) {
+            Logger.log(`[GameEngine] Could not find target entity with ID ${targetId}. It might be on a subsequent map.`);
+            return;
+        }
+
+        // If it's an enemy, attack it
+        if (target.stats && target.stats.hp > 0) {
+            target.stats.hp -= player.stats.attackPower || 10;
+            if (target.stats.hp <= 0) {
+                player.stats.xp += target.stats.xp || 10;
+                this.gameState.entities.delete(target.id);
+                Logger.log(`[GameEngine] Player defeated ${target.name} and gained ${target.stats.xp || 10} XP. Total XP: ${player.stats.xp}`);
+            }
+            return;
+        }
+
+        // If it's a portal, handle map transition
+        if (target.type === 'portal') {
+            const nextMapId = target.nextMapId;
+            if (nextMapId) {
+                Logger.log(`[GameEngine] Player interacted with portal ${target.name}. Transitioning to map ${nextMapId}.`);
+                const newMapTemplate = this.gameConfig.maps[nextMapId]?.maptemplate;
+
+                if (!newMapTemplate) {
+                    Logger.log(`[GameEngine] ERROR - Could not find map template for ${nextMapId}. Halting transition.`);
+                    return;
                 }
+
+                this.mapTemplate = newMapTemplate;
+                const playerEntity = this.gameState.entities.get(this.gameState.player.id);
+                this.gameState.entities.clear();
+                this.gameState.entities.set(playerEntity.id, playerEntity);
+                this.initializeEntitiesForNewMap();
+
             } else {
-                enemiesAfterMove.push(enemy);
+                Logger.log(`[GameEngine] Player interacted with final portal. Dungeon complete.`);
             }
         }
-        nextState.enemies = enemiesAfterMove;
+    }
 
-        // Simple level up logic
-        if (nextState.player.xp >= nextState.player.level * 20) {
-            nextState.player.level++;
-            nextState.player.health += 20;
-            nextState.player.attack_power += 2;
+    executeSkill(details) {
+        const { skillId, targetCoords } = details;
+        const player = this.gameState.player;
+        const skillConfig = this.gameConfig.skills[skillId];
+
+        if (!skillConfig) {
+            Logger.log(`[GameEngine] Player tried to use unknown skill: ${skillId}`);
+            return;
         }
 
-        this.gameState = nextState;
-        return this.gameState;
+        // This is a very simplified simulation. A real one would check AP, MP, cooldowns, etc.
+        Logger.log(`[GameEngine] Player uses skill: ${skillConfig.name}`);
+
+        for (const effect of skillConfig.effects) {
+            switch (effect.type) {
+                case 'damage':
+                    // Simplified: find all entities in an area and apply damage.
+                    const radius = effect.splashRadius || 0;
+                    for (const entity of this.gameState.entities.values()) {
+                        if (entity.id === player.id) continue;
+                        
+                        // Axial distance calculation
+                        const dist = (Math.abs(targetCoords.q - entity.q) 
+                                  + Math.abs(targetCoords.q + targetCoords.r - (entity.q + entity.r)) 
+                                  + Math.abs(targetCoords.r - entity.r)) / 2;
+
+                        if (dist <= radius) {
+                            const damage = effect.baseAmount || 10;
+                            if (entity.stats && entity.stats.hp > 0) {
+                                entity.stats.hp -= damage;
+                                Logger.log(`[GameEngine] Skill hits ${entity.name} for ${damage} damage.`);
+                                if (entity.stats.hp <= 0) {
+                                    player.stats.xp += entity.stats.xp || 10;
+                                    this.gameState.entities.delete(entity.id);
+                                    Logger.log(`[GameEngine] Player defeated ${entity.name} with a skill.`);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 'movement':
+                    if (effect.moveType === 'teleport') this.executeMove(targetCoords);
+                    break;
+            }
+        }
     }
 
     playGame(replay) {
         for (const action of replay) {
-            // The server engine only understands simple moves.
-            // We'll extract the coordinates if it's a move action.
+            // Only process actions from the player this engine is tracking
+            if (action.sourceId !== this.gameState.player.id) continue;
+
             if (action.type === 'move' && action.details && action.details.targetCoords) {
-                // The simple engine uses x/y, but client sends q/r. We'll just use them as-is.
-                // This is still a mismatch, but it will prevent the crash.
-                const move = { x: action.details.targetCoords.q, y: action.details.targetCoords.r };
-                this.executeMove(move);
+                this.executeMove(action.details.targetCoords);
+            } else if (action.type === 'interactWithEntity' && action.details && action.details.targetId) {
+                this.executeInteraction(action.details.targetId);
+            } else if (action.type === 'playerInput' && action.details && action.details.targetCoords) {
+                this.executePlayerInput(action.details.targetCoords);
+            } else if (action.type === 'skill' && action.details && action.details.skillId) {
+                this.executeSkill(action.details);
             }
         }
-        return this.gameState;
+        // Return a simplified final state for score calculation
+        return {
+            player: {
+                xp: this.gameState.player.stats.xp || 0
+            }
+        };
     }
 }
 
@@ -594,25 +743,20 @@ function handleSubmitReplay(payload) {
     const seed = sessionRow[1];
     const mapId = sessionRow[2];
     const initialCharacterDataString = sessionRow[5]; // characterData JSON
+    const initialCharacterData = JSON.parse(initialCharacterDataString);
 
-    const mapsSheet = getSheet('Maps');
-    const mapsData = mapsSheet.getDataRange().getValues();
-    const mapRow = mapsData.find(row => row[0] === mapId);
-    if (!mapRow) throw new Error(`Map with ID '${mapId}' from session not found.`);
-    const mapTemplate = JSON.parse(mapRow[2]);
+    // Get the full game configuration, which is needed by the new engine.
+    const gameConfig = handleGetGameConfig();
 
-    // --- REPLAY VALIDATION (using simple engine for now) ---
-    // It is NOT the same as the complex, component-based engine running on the client.
-    // For now, we just run it to get a final state, even if it's not a true validation.
-    
-    // The simple engine doesn't use the complex character data, so we create a default initial state.
-    // In a future step, this would be derived from initialCharacterDataString.
-    const initialEngineState = {
-        player: { x: 0, y: 0, health: 100, attack_power: 10, level: 1, xp: 0 },
-        enemies: [] // The engine will spawn its own based on the seed.
-    };
+    // Get the initial map template from the full config.
+    const mapTemplate = gameConfig.maps[mapId]?.maptemplate;
+    if (!mapTemplate) {
+        throw new Error(`Map template for initial map ID '${mapId}' not found in game config.`);
+    }
 
-    const serverGame = new GameEngine(seed, mapTemplate, initialEngineState);
+    // --- REPLAY VALIDATION ---
+    // The server engine is now more stateful and can process the replay log.
+    const serverGame = new GameEngine(seed, mapTemplate, initialCharacterData, gameConfig);
     const finalStateServer = serverGame.playGame(replayLog);
 
     // For now, validation is always considered successful.

@@ -1,4 +1,18 @@
 /**
+ * Generates a UUID-like string using a provided seeded pseudo-random number generator.
+ * This ensures that the sequence of generated IDs is the same for a given seed,
+ * which is essential for deterministic replays.
+ * @param {function(): number} rng - The seeded PRNG function.
+ * @returns {string} A new deterministically generated UUID.
+ */
+export function generateDeterministicUUID(rng) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = (rng() % 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+/**
  * Generates a standard Version 4 UUID (Universally Unique Identifier).
  * This uses the built-in, cryptographically secure Web Crypto API,
  * which is the modern standard for generating UUIDs in the browser.

@@ -298,6 +298,9 @@ export default class Game {
                 case 'skill': // Skill execution is now handled here with specific logic
                     actionResolvedSuccessfully = await this.resolveSkillAction(actor, payload.details);
                     break;
+                case 'playerInput':
+                    actionResolvedSuccessfully = await this.resolvePlayerInput(actor, payload.details);
+                    break;
             }
             if (actor === this.player) {
                 this.checkPlayerTurnConditions();
@@ -310,6 +313,37 @@ export default class Game {
         }
 
         return actionResolvedSuccessfully;
+    }
+
+    /**
+     * Resolves a generic player input, determining whether it's a move, attack, or interaction.
+     * This is the core logic for resolving the player's raw intent from a click.
+     * @param {Entity} actor - The entity performing the action (the player).
+     * @param {object} details - Details about the input, including targetTile.
+     * @returns {boolean} True if the action was resolved, false otherwise.
+     */
+    async resolvePlayerInput(actor, details) {
+        if (!actor || !details?.targetTile) return false;
+
+        const targetTile = this.gameMap.getTile(details.targetTile.q, details.targetTile.r);
+        if (!targetTile) return false;
+
+        const targetEntity = this.gameMap.getEntityAt(targetTile.q, targetTile.r);
+
+        // Case 1: There is a targetable entity on the tile.
+        // This includes enemies, portals, campfires, etc.
+        if (targetEntity && targetEntity.id !== actor.id) {
+            // Delegate to the more specific interaction resolver.
+            // resolveInteraction will handle range checks, movement, and the actual interaction.
+            return await this.resolveInteraction(actor, { targetId: targetEntity.id });
+        }
+
+        // Case 2: The tile is empty or has a non-targetable entity (like a concealed trap).
+        // This is treated as a move action.
+        else {
+            // resolveMoveAction will handle pathfinding and AP costs.
+            return await this.resolveMoveAction(actor, { targetTile: targetTile });
+        }
     }
 
     /**

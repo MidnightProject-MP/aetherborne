@@ -177,53 +177,33 @@ class TargetPreviewSystem {
 
     _executeActionForHex(targetHex) {
         const player = this.game.player;
-        let actionType = null, details = {}, isValid = false;
+        let actionType = null, details = {};
 
-        if (this.activePreview) {
+        // If a skill preview is active, the choice is a 'skill' action.
+        if (this.activePreview && this.activePreview.type === 'skill') {
             if (this.activePreview.tiles.has(`${targetHex.q},${targetHex.r}`)) {
-                isValid = true;
-                actionType = this.activePreview.type;
-                if (actionType === 'skill') {
-                    details.skillId = this.activePreview.skill.id;
-                    details.targetHex = targetHex;
-                } else if (actionType === 'move') {
-                    details.targetTile = targetHex;
-                }
+                actionType = 'skill';
+                details = {
+                    skillId: this.activePreview.skill.id,
+                    targetHex: targetHex
+                };
             }
-        } else { // Default action: interactWithEntity or move
-            const targetEntity = this.game.gameMap.getEntityAt(targetHex.q, targetHex.r); // Get primary entity on tile
-            // If there's an entity AND it blocks movement, it's an interaction.
-            // Special handling for portals: they are interactable even if they don't block movement.
-            if (targetEntity && targetEntity.id !== player.id &&
-                (targetEntity.blocksMovement || targetEntity.hasComponent('portal'))) { // ADDED: Check for portal component
-                isValid = true;
-                actionType = 'interactWithEntity';
-                details.targetId = targetEntity.id;
-            }
-            // If it's a portal and the player is already on it, it's still an interaction.
-            // If it's a portal and the player is NOT on it, it will be handled by resolveInteraction to move first.
-            // Otherwise, it's a move action (empty tile or tile with non-blocking entity).
-            else {
-                // This block is for pure movement to an empty or non-blocking tile.
-                const path = this.game._findPath(player, targetHex);
-                const moveRange = player.getComponent('movement')?.getEffectiveMovementRange() || 0;
-                if (path && (path.length - 1) <= moveRange) {
-                    // Path is valid and within range
-                    isValid = true;
-                    actionType = 'move';
-                    details.targetTile = targetHex;
-                }
-            }
+        } else {
+            // For any other click (move, attack, interact), we log the player's raw input intent.
+            // The Game engine will be responsible for resolving this into a move, attack, or interaction.
+            actionType = 'playerInput';
+            details = {
+                targetTile: targetHex
+            };
         }
 
-        if (isValid && actionType) {
+        if (actionType) {
             this.eventBus.publish('entityAction', {
                 type: actionType,
                 sourceId: player.id,
                 details: details
             });
         } else {
-            // If the action is not geometrically valid or no action type was determined, just clear.
             console.warn(`[TargetPreviewSystem] No valid action determined for ${targetHex.q},${targetHex.r}. Clearing preview.`);
             this.clearPreview();
         }

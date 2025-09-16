@@ -1,4 +1,4 @@
-import { generateUUID } from './utils.js';
+import { generateUUID, generateDeterministicUUID } from './utils.js';
 
 /**
  * The base class for all objects in the game world (e.g., player, enemies, items).
@@ -11,7 +11,11 @@ class Entity {
      * @param {object} [config={}] - Configuration data for the entity.
      */
     constructor(game, config = {}) {
-        this.id = config.id || generateUUID();
+        // If an ID is not provided, generate one.
+        // If the game has a seeded RNG (i.e., it's not a menu or other non-game context),
+        // use it for a deterministic ID. Otherwise, fall back to a truly random UUID.
+        this.id = config.id || (game.rng ? generateDeterministicUUID(game.rng) : generateUUID());
+
         this.game = game;
         this.type = config.type || 'generic';
         this.name = config.name || this.type;
