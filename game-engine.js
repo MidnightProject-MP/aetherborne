@@ -943,8 +943,14 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000); // Wait up to 30 seconds.
 
+  const requestBody = e.postData ? e.postData.contents : '{}';
+
   try {
-    const request = JSON.parse(e.postData.contents);
+    // Log the key elements of the request as requested.
+    Logger.log(`--- API Request Received ---`);
+    Logger.log(`Request Body: ${requestBody}`);
+
+    const request = JSON.parse(requestBody);
     const action = request.action;
     const payload = request.payload || {};
 
@@ -986,6 +992,11 @@ function doPost(e) {
   } catch (error) {
     // Log the full stack trace for better debugging in Apps Script logs.
     console.error('doPost Error:', error.stack);
+    // Also add a simpler log for quick diagnosis in the execution logs.
+    Logger.log(`--- API Request ERROR ---`);
+    Logger.log(`Failed on request: ${requestBody}`);
+    Logger.log(`Error message: ${error.message}`);
+
     const errorPayload = {
       status: 'error',
       message: error.message || error.toString(), // Use .message for more specific errors
