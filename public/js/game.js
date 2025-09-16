@@ -750,8 +750,8 @@ export default class Game {
         const enemies = this.gameMap.getEnemies().map(enemy => {
             const enemyStats = enemy.getComponent('stats');
             return {
-                x: enemy.hex.col,
-                y: enemy.hex.row,
+                x: enemy.hex.q,
+                y: enemy.hex.r,
                 health: enemyStats.hp,
                 attack_power: enemyStats.attackPower
             };
