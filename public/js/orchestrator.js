@@ -218,7 +218,13 @@ export class LiveGameOrchestrator {
         console.log("[LiveGameOrchestrator] Fetching game configuration from server...");
         try {
             const dynamicConfig = await getGameConfig();
-            this.config = { ...CONFIG, ...dynamicConfig };
+            // The server sends a minimal `entityBlueprints` object for its own validation purposes.
+            // The client has a complete version in its local CONFIG file.
+            // To prevent the server's minimal version from overwriting the client's full version,
+            // we delete it from the server's response before merging the configurations.
+            delete dynamicConfig.entityBlueprints;
+
+            this.config = { ...CONFIG, ...dynamicConfig }; // Merge server data (sheets) with local static data (blueprints).
             console.log("[LiveGameOrchestrator] Game configuration loaded.");
 
             // --- Restore UI on Success ---
