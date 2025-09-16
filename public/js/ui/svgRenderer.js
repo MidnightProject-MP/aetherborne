@@ -94,7 +94,12 @@ class SVGRenderer {
         for (const [event, callback] of this.listeners.entries()) {
             this.eventBus.unsubscribe(event, callback);
         }
-        this.svgElement.innerHTML = ''; // Clear all layers
+        // Clear the content of each layer, but leave the layer <g> elements themselves.
+        for (const key in this.layers) {
+            if (this.layers[key] && this.layers[key].innerHTML) {
+                this.layers[key].innerHTML = '';
+            }
+        }
     }
 
     /**
