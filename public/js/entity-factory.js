@@ -60,16 +60,29 @@ export default class EntityFactory {
             return null;
         }
 
-        const entity = new Entity(this.game, type, properties.name || type);
-        
-        // Assign properties from the blueprint and overrides from the map config
-        Object.assign(entity, blueprint.entityProperties, properties);
-        entity.initialCoords = initialCoords;
+        // Add logging for portal creation
+        if (type === 'portal') {
+            console.log(`[EntityFactory] Creating 'portal' entity with properties:`, properties);
+        }
+
+        // 1. Combine all properties into a single config object for the Entity constructor.
+        // This ensures properties from the blueprint, the map file, and the type are all correctly applied.
+        const entityConfig = {
+            ...blueprint.entityProperties, // Start with blueprint defaults (e.g., zIndex, blocksMovement)
+            ...properties,                 // Override with properties from the map file (e.g., name, nextMapId)
+            type: type,                    // Ensure the primary type is set
+            ...(initialCoords || {})       // Add q, r coordinates if they exist
+        };
+
+        // 2. Create the entity instance using the unified config.
+        const entity = new Entity(this.game, entityConfig);
 
         // Add components based on the blueprint
         for (const compConfig of blueprint.components) {
             const ComponentClass = componentClasses[compConfig.class];
             if (ComponentClass) {
+                // Pass the map-defined properties to the component argument getter.
+                // This is important for components that need specific map data (like PortalComponent needing nextMapId).
                 const args = this._getComponentArgs(compConfig, properties);
                 const component = new ComponentClass(args);
                 entity.addComponent(component);
@@ -99,6 +112,9 @@ export default class EntityFactory {
                 return { skillIds: entityProperties.skills || [] };
             case 'entityProperties':
                 // If a dataSourceKey is provided, use that sub-object from the entity's properties.
+                if (compConfig.class === 'PortalComponent') {
+                    console.log(`[EntityFactory] Getting args for PortalComponent from entityProperties:`, entityProperties);
+                }
                 if (compConfig.dataSourceKey) {
                     return entityProperties[compConfig.dataSourceKey] || compConfig.args || {};
                 }

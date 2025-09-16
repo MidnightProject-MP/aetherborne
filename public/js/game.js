@@ -134,6 +134,7 @@ export default class Game {
         });
         if (!this.isReplay) {
             this.eventBus.subscribe('mapTransitionRequest', ({ nextMapId, entityId }) => {
+                console.log(`[Game] Received 'mapTransitionRequest' event. Next map: ${nextMapId}, Entity: ${entityId}`);
                 this.handleMapTransition(nextMapId, entityId);
             });
         }
@@ -370,12 +371,15 @@ export default class Game {
         // Check if the target is a portal (PortalComponent extends InteractableComponent)
         const portalComp = target.getComponent('portal');
         if (portalComp) {
+            console.log(`[Game] Resolving interaction with portal: ${target.name}`);
             // If the actor is already on the portal, trigger it immediately.
             if (actor.hex.equals(target.hex)) {
+                console.log(`[Game] Actor is on portal tile. Calling interact() directly.`);
                 portalComp.interact(actor); // PortalComponent's interact will publish mapTransitionRequest
                 return true;
             }
 
+            console.log(`[Game] Actor is not on portal tile. Resolving as a move action to the portal.`);
             // Otherwise, treat this as an intent to move onto the portal tile.
             const movement = actor.getComponent('movement');
             const effectiveMovementRange = movement?.getEffectiveMovementRange() || 0;
@@ -429,8 +433,11 @@ export default class Game {
      * @param {string} entityId - The ID of the entity (usually player) transitioning.
      */
     async handleMapTransition(nextMapId, entityId) {
+        console.log(`[Game] Starting map transition to '${nextMapId}'...`);
         // If there's no next map, the dungeon is complete.
         if (!nextMapId) {
+            // It's possible the portal has no nextMapId defined. This log will catch that.
+            console.log(`[Game] No nextMapId provided. Ending dungeon.`);
             this.handleGameOver("Dungeon Completed!");
             return;
         }
@@ -452,6 +459,7 @@ export default class Game {
 
         // 2. Re-initialize the game with the new map configuration.
         await this.initializeLayoutAndMap(this.characterData, playerToPreserve);
+        console.log(`[Game] Map transition to '${nextMapId}' complete.`);
     }
 
     /**
