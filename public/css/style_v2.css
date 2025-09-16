@@ -133,6 +133,7 @@ h1, h2, h3 {
     display: flex;
     padding: 0;
     max-width: none;
+    position: relative; /* This is needed for absolute positioning of children like the map name display */
 }
 #game-ui-overlay { width: 300px; flex-shrink: 0; background: var(--box); border-left: 2px solid var(--border); padding: 1rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
 #map-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: var(--bg); overflow: hidden; position: relative; }

@@ -285,6 +285,20 @@ input, textarea {
     gap: 1rem;
 }
 
+/* Map Name Display */
+.map-name-display {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    z-index: 10; /* Ensure it's above the SVG map */
+}
+
 /* ==========================================================================
    3. UI COMPONENT STYLES
    ========================================================================== */

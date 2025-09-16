@@ -139,8 +139,17 @@ export default class Game {
         });
         if (!this.isReplay) {
             this.eventBus.subscribe('mapTransitionRequest', ({ nextMapId, entityId }) => {
-                console.log(`[Game] Received 'mapTransitionRequest' event. Next map: ${nextMapId}, Entity: ${entityId}`);
-                this.handleMapTransition(nextMapId, entityId);
+                console.log(`[Game] Received 'mapTransitionRequest' event. Next map: ${nextMapId}`);
+                if (nextMapId) {
+                    // For a real transition, defer the action to prevent a race condition where other
+                    // systems (like DetectionSystem) try to access the map while it's being torn down.
+                    setTimeout(() => this.handleMapTransition(nextMapId, entityId), 0);
+                } else {
+                    // For the final portal (no nextMapId), handle it synchronously.
+                    // This immediately sets the isGameOver flag, preventing the turn-end
+                    // logic from starting an infinite loop.
+                    this.handleMapTransition(nextMapId, entityId);
+                }
             });
         }
         this.eventBus.subscribe('playerEndTurn', () => {
@@ -447,6 +456,14 @@ export default class Game {
             return;
         }
 
+        // --- THIS IS THE FIX ---
+        // Find the new map's configuration from the master config list.
+        const newMapTemplate = this.CONFIG.maps[nextMapId];
+        if (!newMapTemplate) {
+            this.handleGameOver(`Error: Map config for transition target ID "${nextMapId}" not found.`);
+            return;
+        }
+
         const entity = this.getEntity(entityId);
         if (!entity || entity.type !== 'player') {
             console.error(`[Game] Non-player entity ${entityId} tried to transition.`);
@@ -458,6 +475,9 @@ export default class Game {
 
         // 1. Clean up the state of the current map.
         this._cleanupForTransition();
+
+        // Update the session data to use the new map template for the re-initialization.
+        this.sessionData.mapTemplate = newMapTemplate.maptemplate;
 
         // Update the character data to reflect the new map
         this.characterData.currentMapId = nextMapId;
