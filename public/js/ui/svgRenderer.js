@@ -266,6 +266,7 @@ class SVGRenderer {
      * Updates the visibility of map tiles and entities based on Fog of War.
      */
     updateMapVisibility() {
+        if (this.game.gameState.isGameOver) return; // Don't update visibility if game is over
         const gameMap = this.game.gameMap;
         gameMap.getAllTiles().forEach(tile => {
             const fowElement = this.fowElements.get(`${tile.q},${tile.r}`);

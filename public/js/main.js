@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("[Main] DOMContentLoaded event fired. Initializing App.");
     const eventBus = new EventBus();
     // Create an instance of the HighScoreManager.
-    const highScoreManager = new HighScoreManager();
+    const highScoreManager = new HighScoreManager(eventBus);
     // Create an instance of the OverlayManager to handle all popups and modals.
     const overlayManager = new OverlayManager(eventBus);
 

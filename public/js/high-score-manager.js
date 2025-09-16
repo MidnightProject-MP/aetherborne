@@ -6,48 +6,22 @@
 import { getHighScores } from './apiService.js';
 
 export default class HighScoreManager {
-    constructor() {
-        // This could be expanded to take a UI container element
+    constructor(eventBus) {
+        this.eventBus = eventBus;
     }
 
     /**
-     * Fetches high scores from the server and renders them into the UI.
+     * Fetches high scores from the server and publishes an event with the result.
      */
-    async displayHighScores() {
-        const panel = document.getElementById('high-score-panel');
-        const list = document.getElementById('high-score-list');
-
-        if (!panel || !list) {
-            console.error('[HighScoreManager] High score UI elements not found.');
-            return;
-        }
-
-        list.innerHTML = '<li>Loading...</li>';
-        panel.classList.remove('hidden');
-
+    async fetchAndPublishScores() {
         try {
             const scores = await getHighScores();
-            list.innerHTML = ''; // Clear loading message
-
-            if (scores.length === 0) {
-                list.innerHTML = '<li>No high scores yet. Be the first!</li>';
-                return;
-            }
-
-            scores.forEach(score => {
-                const li = document.createElement('li');
-                // If a sessionId exists, make it a link to the replay viewer.
-                if (score.sessionId) {
-                    li.innerHTML = `<a href="replay.html?sessionId=${score.sessionId}" target="_blank">${score.name} - ${score.score}</a>`;
-                } else {
-                    li.textContent = `${score.name} - ${score.score}`;
-                }
-                list.appendChild(li);
-            });
-
+            // The OverlayManager will listen for this event to display the scores.
+            this.eventBus.publish('showHighScores', { scores });
         } catch (error) {
-            console.error('[HighScoreManager] Failed to display high scores:', error);
-            list.innerHTML = '<li>Error loading scores. Please try again.</li>';
+            console.error('[HighScoreManager] Failed to fetch high scores:', error);
+            // Also publish on error so the UI can show a message.
+            this.eventBus.publish('showHighScores', { error: 'Failed to load scores. Please try again.' });
         }
     }
 }

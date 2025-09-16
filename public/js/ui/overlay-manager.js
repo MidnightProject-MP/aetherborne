@@ -46,6 +46,7 @@ class OverlayManager {
     _setupEventListeners() {
         this.eventBus.subscribe('gameOver', (payload) => this._showGameOverModal(payload));
         this.eventBus.subscribe('portalChoicesRequested', (payload) => this._showChoicesModal(payload));
+        this.eventBus.subscribe('showHighScores', (payload) => this._showHighScoresModal(payload));
         // Add more listeners here as needed, e.g., for lore popups, settings menus, etc.
     }
 
@@ -59,11 +60,12 @@ class OverlayManager {
     _showChoicesModal({ title, choices }) {
         this.hideAll();
 
-        const overlay = this._createBaseOverlay('modal');
+        const backdrop = this._createBaseOverlay('modal');
+        const content = backdrop.querySelector('.overlay-content');
         
         const titleElem = document.createElement('h2');
         titleElem.textContent = title;
-        overlay.appendChild(titleElem);
+        content.appendChild(titleElem);
 
         const choiceContainer = document.createElement('div');
         choiceContainer.className = 'choice-container';
@@ -75,13 +77,13 @@ class OverlayManager {
             button.title = choice.description;
             button.addEventListener('click', () => {
                 choice.effect();
-                this.hide(overlay);
+                this.hide(backdrop);
             });
             choiceContainer.appendChild(button);
         });
         
-        overlay.appendChild(choiceContainer);
-        this._show(overlay);
+        content.appendChild(choiceContainer);
+        this._show(backdrop);
     }
 
     /**
@@ -93,22 +95,23 @@ class OverlayManager {
     _showGameOverModal({ message, score }) {
         this.hideAll();
         
-        const overlay = this._createBaseOverlay('modal');
+        const backdrop = this._createBaseOverlay('modal');
+        const content = backdrop.querySelector('.overlay-content');
         
         const titleElem = document.createElement('h2');
         titleElem.textContent = message;
-        overlay.appendChild(titleElem);
+        content.appendChild(titleElem);
 
         const scoreElem = document.createElement('p');
         scoreElem.textContent = `Final Score: ${score}`;
-        overlay.appendChild(scoreElem);
+        content.appendChild(scoreElem);
 
         // Add a message about score submission
         const infoElem = document.createElement('p');
         infoElem.style.fontSize = '0.9rem';
         infoElem.style.color = '#666';
         infoElem.textContent = 'Your score and replay are being submitted automatically.';
-        overlay.appendChild(infoElem);
+        content.appendChild(infoElem);
         
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'overlay-buttons';
@@ -121,9 +124,66 @@ class OverlayManager {
         });
         
         buttonContainer.appendChild(returnButton);
-        overlay.appendChild(buttonContainer);
+        content.appendChild(buttonContainer);
         
-        this._show(overlay);
+        this._show(backdrop);
+    }
+
+    /**
+     * Shows the high scores modal, created dynamically.
+     * @param {object} payload - The event payload.
+     * @param {Array} [payload.scores] - The list of high scores.
+     * @param {string} [payload.error] - An error message, if any.
+     * @private
+     */
+    _showHighScoresModal({ scores, error }) {
+        this.hideAll();
+
+        const backdrop = this._createBaseOverlay('modal');
+        const content = backdrop.querySelector('.overlay-content');
+
+        const titleElem = document.createElement('h2');
+        titleElem.textContent = 'High Scores';
+        content.appendChild(titleElem);
+
+        const listContainer = document.createElement('ul');
+        listContainer.className = 'high-score-list';
+
+        if (error) {
+            const errorItem = document.createElement('li');
+            errorItem.textContent = error;
+            listContainer.appendChild(errorItem);
+        } else if (scores && scores.length > 0) {
+            scores.forEach(score => {
+                const listItem = document.createElement('li');
+                if (score.sessionId) {
+                    listItem.innerHTML = `<a href="replay.html?sessionId=${score.sessionId}" target="_blank">${score.name} - ${score.score}</a>`;
+                } else {
+                    listItem.textContent = `${score.name} - ${score.score}`;
+                }
+                listContainer.appendChild(listItem);
+            });
+        } else {
+            const noScoresItem = document.createElement('li');
+            noScoresItem.textContent = 'No high scores yet. Be the first!';
+            listContainer.appendChild(noScoresItem);
+        }
+
+        content.appendChild(listContainer);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'overlay-buttons';
+
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.addEventListener('click', () => {
+            this.hide(backdrop);
+        });
+
+        buttonContainer.appendChild(closeButton);
+        content.appendChild(buttonContainer);
+
+        this._show(backdrop);
     }
 
     /**
@@ -240,6 +300,26 @@ class OverlayManager {
             }
             .overlay-buttons button:hover, .choice-container button:hover {
                 background-color: #6a6a6a;
+            }
+            .overlay-content ul.high-score-list {
+                list-style: none;
+                padding: 0;
+                margin-bottom: 1.5rem;
+                text-align: left;
+            }
+            .overlay-content ul.high-score-list li {
+                padding: 0.5rem 1rem;
+                border-bottom: 1px solid #eee;
+            }
+            .overlay-content ul.high-score-list li:last-child {
+                border-bottom: none;
+            }
+            .overlay-content ul.high-score-list a {
+                text-decoration: none;
+                color: #007bff; /* A standard link blue */
+            }
+            .overlay-content ul.high-score-list a:hover {
+                text-decoration: underline;
             }
         `;
         document.head.appendChild(style);

@@ -27,6 +27,8 @@ export class LiveGameOrchestrator {
         this.visibilitySystem = null;
         this.initializationSequence = this.createInitializationSequence();
         this.config = null; // Will hold the merged game configuration
+        this.replayLog = [];
+        this.sessionId = null;
 
         this.bindEventHandlers();
     }
@@ -34,45 +36,64 @@ export class LiveGameOrchestrator {
     bindEventHandlers() {
         this.eventBus.subscribe('gameOver', this.handleGameOver.bind(this));
         this.eventBus.subscribe('returnToMainMenu', this.handleReturnToMainMenu.bind(this));
+        this.eventBus.subscribe('entityAction', this.handleEntityAction.bind(this));
+    }
+
+    /**
+    * Converts an action payload with object references to a serializable version for the replay log.
+    * @param {object} payload - The action payload from the event bus.
+    * @returns {object} A serializable copy of the payload.
+    * @private
+    */
+    _serializeActionPayload(payload) {
+        const serializable = JSON.parse(JSON.stringify(payload)); // Deep copy to be safe
+        if (payload.details.targetTile) {
+            serializable.details.targetCoords = {
+                q: payload.details.targetTile.q,
+                r: payload.details.targetTile.r
+            };
+            delete serializable.details.targetTile;
+        }
+        // Also handle targetHex for skills
+        if (payload.details.targetHex) {
+            serializable.details.targetCoords = {
+                q: payload.details.targetHex.q,
+                r: payload.details.targetHex.r
+            };
+            delete serializable.details.targetHex;
+        }
+        return serializable;
+    }
+
+    handleEntityAction(payload) {
+        // Only log actions performed by the player.
+        if (this.gameInstance?.player?.id === payload.sourceId) {
+            const serializablePayload = this._serializeActionPayload(payload);
+            this.replayLog.push(serializablePayload);
+            console.log('[LiveGameOrchestrator] Player action logged for replay.', serializablePayload);
+        }
     }
 
     async handleGameOver(payload = {}) {
         console.log("[LiveGameOrchestrator] Game Over event received:", payload.message);
         const playerName = payload.characterData?.name || "Anonymous Hero";
 
-        // Also submit the replay for validation
-        if (payload.replayData) {
+        // Submit the replay for validation using the orchestrator's log.
+        if (this.sessionId && this.replayLog.length > 0) {
             try {
                 console.log("[LiveGameOrchestrator] Submitting replay for validation...");
-                // Get the final game state from the game instance in a format the server can verify.
-                const finalStateClient = this.gameInstance.getSerializableState();
-                const validationResult = await submitReplay(payload.replayData.sessionId, payload.replayData.replayLog, finalStateClient, playerName);
+                // The client no longer sends its final state. The server calculates it from the replay.
+                const validationResult = await submitReplay(this.sessionId, this.replayLog, playerName);
                 console.log("[LiveGameOrchestrator] Replay validation result:", validationResult);
             } catch (error) {
                 console.error("[LiveGameOrchestrator] Failed to submit replay:", error);
             }
+        } else {
+            console.log("[LiveGameOrchestrator] No replay data to submit.");
         }
 
-        // If the dungeon was completed, save the player's state.
-        if (payload.message === "Dungeon Completed!") {
-            try {
-                // When a dungeon is completed, we need to save the player's progress and
-                // set their next location to a hub area, not the map they just left.
-                const finalPlayerStats = this.gameInstance.player.getComponent('stats').getSavableStats();
-                const nextMap = this.config.dungeonCompleteTargetMapId || this.config.prologueStartMapId;
-
-                // Construct the state object to save. We only need the player's data and their next map.
-                const stateToSave = {
-                    player: finalPlayerStats,
-                    currentMapId: nextMap
-                };
-
-                await updatePlayerState(payload.characterData.playerid, stateToSave);
-                console.log(`[LiveGameOrchestrator] Player state for ${playerName} saved successfully. Next map is now: ${nextMap}`);
-            } catch (error) {
-                console.error("[LiveGameOrchestrator] Failed to save player state:", error);
-            }
-        }
+        // Player state saving is now handled entirely by the server upon replay validation.
+        // The client's responsibility ends here.
     }
 
     handleReturnToMainMenu() {
@@ -134,8 +155,8 @@ export class LiveGameOrchestrator {
         if (highScoresBtn) {
             console.log("[LiveGameOrchestrator] High Scores button found, attaching click handler");
             highScoresBtn.addEventListener('click', () => {
-                console.log('[LiveGameOrchestrator] High Scores button clicked. Displaying scores.');
-                this.highScoreManager.displayHighScores();
+                console.log('[LiveGameOrchestrator] High Scores button clicked. Fetching scores.');
+                this.highScoreManager.fetchAndPublishScores();
             });
         } else {
             console.warn('[LiveGameOrchestrator] High Scores button (high-scores-btn) not found!');
@@ -243,6 +264,7 @@ export class LiveGameOrchestrator {
         // The server now returns the authoritative session AND character data.
         const authoritativeSession = await startNewGame(initialCharacterData.currentMapId || 'prologue_map_1', initialCharacterData);
         console.log("[LiveGameOrchestrator] Authoritative session data received:", authoritativeSession);
+        this.sessionId = authoritativeSession.sessionId;
 
         // Use the data returned from the server, not the initial data.
         // This is the core of the security fix.

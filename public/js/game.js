@@ -29,7 +29,6 @@ export default class Game {
         // --- Server-Authoritative Data ---
         this.sessionData = sessionData;
         this.sessionId = sessionData.sessionId;
-        this.replayLog = []; // NEW: To record player actions for validation
         this.rng = createSeededRNG(sessionData.seed);
         console.log(`[Game] Initializing with session ${this.sessionId} and seed ${sessionData.seed}`);
 
@@ -283,14 +282,6 @@ export default class Game {
         const actor = this.getEntity(payload.sourceId);
         if (!actor) return false;
 
-        // Log the action if it's from the player.
-        if (actor.type === 'player') {
-            // We need a serializable version of the payload.
-            // The payload contains object references (like targetTile).
-            const serializablePayload = this._serializeActionPayload(payload);
-            this.replayLog.push(serializablePayload);
-        }
-
         this.gameState.isAnimating = true;
         let actionResolvedSuccessfully = false;
         try {
@@ -319,22 +310,6 @@ export default class Game {
         }
 
         return actionResolvedSuccessfully;
-    }
-
-    /**
-     * Converts an action payload with object references to a serializable version.
-     * @private
-     */
-    _serializeActionPayload(payload) {
-        const serializable = JSON.parse(JSON.stringify(payload)); // Deep copy to be safe
-        if (payload.details.targetTile) {
-            serializable.details.targetCoords = { 
-                q: payload.details.targetTile.q, 
-                r: payload.details.targetTile.r 
-            };
-            delete serializable.details.targetTile;
-        }
-        return serializable;
     }
 
     /**
@@ -804,8 +779,7 @@ export default class Game {
         this.eventBus.publish('gameOver', {
             message: message,
             score: this.player?.getComponent('stats')?.xp || 0,
-            characterData: this.characterData,
-            replayData: { sessionId: this.sessionId, replayLog: this.replayLog }
+            characterData: this.characterData
         });
     }
 

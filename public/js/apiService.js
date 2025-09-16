@@ -39,11 +39,9 @@ async function postToServer(action, payload = {}) {
 
 export async function getHighScores() { return postToServer('getHighScores'); }
 
-export async function submitScore(playerName, score) { return postToServer('submitScore', { name: playerName, score }); }
-
 export async function startNewGame(mapId, characterData) { return postToServer('newGame', { mapId, characterData }); }
 
-export async function submitReplay(sessionId, replayLog, finalStateClient, playerName) { return postToServer('submitReplay', { sessionId, replayLog, finalStateClient, playerName }); }
+export async function submitReplay(sessionId, replayLog, playerName) { return postToServer('submitReplay', { sessionId, replayLog, playerName }); }
 
 export async function getGameConfig() { return postToServer('getGameConfig'); }
 
