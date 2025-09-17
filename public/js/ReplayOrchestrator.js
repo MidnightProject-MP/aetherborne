@@ -173,8 +173,9 @@ export class ReplayOrchestrator {
             // 2. Clean up the old map state.
             this.gameInstance._cleanupForTransition();
             // 3. Set the new map template and re-initialize the game instance.
-            this.gameInstance.sessionData.mapTemplate = newMapTemplate;
-            await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, newMapTemplate.maptemplate, playerToPreserve);
+            const newMapData = newMapTemplate.maptemplate;
+            this.gameInstance.sessionData.mapTemplate = newMapData;
+            await this.gameInstance.initializeLayoutAndMap(this.gameInstance.characterData, newMapData, playerToPreserve);
             
             this.hideMessage();
         } catch (error) {

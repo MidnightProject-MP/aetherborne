@@ -641,17 +641,30 @@ function handleGetReplay(payload) {
     const sessionsSheet = getSheet('GameSessions');
     if (!sessionsSheet) throw new Error("Sheet 'GameSessions' not found.");
     const sessionsValues = sessionsSheet.getDataRange().getValues();
+    console.log(`Searching for session '${sessionId}' in ${sessionsValues.length} rows.`);
     let seed = null;
     let versionedMapId = null;
+    let initialCharacterData = null; // Declare the variable to hold the parsed data.
     for (let i = sessionsValues.length - 1; i >= 0; i--) {
         if (sessionsValues[i][0] === sessionId) {
-            // Structure: [sessionId, seed, versionedMapId, ...]
+            // Structure: [sessionId, seed, versionedMapId, timestamp, status, characterData_JSON]
             seed = sessionsValues[i][1];
             versionedMapId = sessionsValues[i][2];
+            const initialCharacterDataString = sessionsValues[i][5];
+            if (initialCharacterDataString) {
+                console.log(`Found character data string for session '${sessionId}'.`);
+                initialCharacterData = JSON.parse(initialCharacterDataString);
+            } else {
+                console.log(`Session '${sessionId}' found, but its character data string is empty.`);
+            }
             break;
         }
     }
-    if (!seed || !versionedMapId) throw new Error(`Initial session data for sessionId '${sessionId}' not found in GameSessions.`);
+    if (!seed || !versionedMapId || !initialCharacterData) {
+        // This detailed log helps distinguish between a missing session and incomplete data.
+        console.error(`Incomplete session data for '${sessionId}': seed=${seed}, mapId=${versionedMapId}, charDataExists=${!!initialCharacterData}`);
+        throw new Error(`Initial session data (including character) for sessionId '${sessionId}' not found in GameSessions.`);
+    }
 
     // --- Step 3: Get the map template from the game config ---
     const gameConfig = handleGetGameConfig();
@@ -1045,6 +1058,30 @@ function testGetGameConfig() {
     Logger.log(JSON.stringify(responseData, null, 2));
   } catch (e) {
     Logger.log(`❌ ERROR in handleGetGameConfig: ${e.toString()}`);
+    Logger.log(`Stack Trace: ${e.stack}`);
+  }
+}
+
+/**
+ * A test function to debug the getReplay action with a specific session ID.
+ * This can be run directly from the Apps Script editor.
+ */
+function testHandleGetReplay() {
+  try {
+    Logger.log("--- Starting GetReplay Test ---");
+
+    // The specific sessionId to test.
+    const sessionId = 'a6e8b8e5-a9ab-4e1e-9922-396558a619f4';
+
+    // Call handleGetReplay with the hardcoded sessionId.
+    Logger.log(`Calling handleGetReplay for sessionId: ${sessionId}...`);
+    const getReplayPayload = { sessionId: sessionId };
+    const replayData = handleGetReplay(getReplayPayload);
+
+    Logger.log("✅ SUCCESS: handleGetReplay returned:");
+    Logger.log(JSON.stringify(replayData, null, 2));
+  } catch (e) {
+    Logger.log(`❌ ERROR in testHandleGetReplay: ${e.toString()}`);
     Logger.log(`Stack Trace: ${e.stack}`);
   }
 }
