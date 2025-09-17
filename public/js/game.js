@@ -115,8 +115,10 @@ export default class Game {
         // The renderer will now draw the map with the correct initial visibility.
         this.eventBus.publish('mapLoaded', { mapConfig, entities: allEntities });
 
-        // 10. Add event listeners for interaction
-        this.addEventListeners();
+        // 10. Add event listeners for interaction, but only for live games.
+        if (!this.isReplay) {
+            this.addEventListeners();
+        }
 
         // 11. Run an initial visibility and detection check AFTER the map has been rendered.
         // This ensures the renderer has created the FOW elements before trying to update them.

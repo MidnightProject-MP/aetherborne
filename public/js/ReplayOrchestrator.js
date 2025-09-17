@@ -14,9 +14,16 @@ export class ReplayOrchestrator {
         this.replayData = null;
         this.config = null;
         this.currentTurn = 0;
+        this.isPlaying = false;
+        this.playInterval = null;
+        this.playbackSpeed = 1000; // ms per turn, default 1x
 
-        // The only control is the "Next Turn" button.
+        // UI Elements
         this.nextTurnBtn = document.getElementById('next-turn-btn');
+        this.playPauseBtn = document.getElementById('play-pause-btn');
+        this.prevTurnBtn = document.getElementById('prev-turn-btn');
+        this.resetBtn = document.getElementById('reset-btn');
+        this.speedSelect = document.getElementById('speed-select');
         this.turnCounter = document.getElementById('turn-counter');
         this.statusMessage = document.getElementById('status-message');
 
@@ -53,6 +60,7 @@ export class ReplayOrchestrator {
 
             this.bindUIControls();
             this.updateTurnCounter();
+            this.updateButtonStates();
 
         } catch (error) {
             console.error('[ReplayOrchestrator] Failed to start replay:', error);
@@ -93,17 +101,27 @@ export class ReplayOrchestrator {
     }
 
     bindUIControls() {
-        this.nextTurnBtn.addEventListener('click', () => this.nextTurn());
+        this.nextTurnBtn.addEventListener('click', () => {
+            this.pause();
+            this.stepForward();
+        });
+        this.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
+        this.resetBtn.addEventListener('click', () => this.resetReplay());
+        this.speedSelect.addEventListener('change', (e) => this.setSpeed(e.target.value));
     }
 
     /**
      * Executes the next turn in the replay log.
      */
-    async nextTurn() {
+    async stepForward() {
         if (this.currentTurn >= this.replayData.replayLog.length) {
             this.handleReplayEnd('Replay finished.');
             return;
         }
+
+        // Disable controls during turn execution
+        this.nextTurnBtn.disabled = true;
+        this.playPauseBtn.disabled = true;
 
         const success = await this.executeTurn(this.currentTurn);
 
@@ -112,6 +130,13 @@ export class ReplayOrchestrator {
             this.updateTurnCounter();
         } else {
             this.handleReplayEnd(`Replay stopped: Invalid action detected at turn ${this.currentTurn + 1}.`, true);
+            return;
+        }
+
+        this.updateButtonStates();
+
+        if (this.currentTurn >= this.replayData.replayLog.length) {
+            this.handleReplayEnd('Replay finished.');
         }
     }
 
@@ -153,6 +178,54 @@ export class ReplayOrchestrator {
         return deserialized;
     }
 
+    togglePlayPause() {
+        this.isPlaying = !this.isPlaying;
+        if (this.isPlaying) {
+            this.play();
+        } else {
+            this.pause();
+        }
+    }
+
+    play() {
+        this.isPlaying = true;
+        this.updateButtonStates();
+
+        const loop = async () => {
+            if (!this.isPlaying) return;
+
+            await this.stepForward();
+
+            if (this.isPlaying) { // Check again in case stepForward ended the replay
+                this.playInterval = setTimeout(loop, this.playbackSpeed);
+            }
+        };
+        loop();
+    }
+
+    pause() {
+        this.isPlaying = false;
+        clearTimeout(this.playInterval);
+        this.playInterval = null;
+        this.updateButtonStates();
+    }
+
+    async resetReplay() {
+        this.pause();
+        this.showMessage('Resetting replay...');
+        this.currentTurn = 0;
+
+        await this.initializeGame();
+
+        this.updateTurnCounter();
+        this.hideMessage();
+        this.updateButtonStates();
+    }
+
+    setSpeed(speed) {
+        this.playbackSpeed = parseInt(speed, 10);
+    }
+
     async handleMapTransition({ nextMapId, entityId }) {
         if (this.gameInstance.player.id !== entityId) return;
 
@@ -188,12 +261,30 @@ export class ReplayOrchestrator {
     }
 
     handleReplayEnd(message, isError = false) {
+        this.pause(); // Ensure playback is stopped and buttons are updated
         if (isError) {
             this.showError(message, true);
         } else {
             this.showMessage(message, true);
         }
-        this.nextTurnBtn.disabled = true;
+        this.playPauseBtn.disabled = true; // Final state: disable play
+    }
+
+    updateButtonStates() {
+        const atEnd = this.currentTurn >= this.replayData.replayLog.length;
+        const atStart = this.currentTurn === 0;
+
+        if (this.isPlaying) {
+            this.playPauseBtn.innerHTML = '⏸️ Pause';
+            this.nextTurnBtn.disabled = true;
+            this.resetBtn.disabled = true;
+        } else {
+            this.playPauseBtn.innerHTML = '▶️ Play';
+            this.playPauseBtn.disabled = atEnd;
+            this.nextTurnBtn.disabled = atEnd;
+            this.resetBtn.disabled = atStart;
+        }
+        this.prevTurnBtn.disabled = true; // Always disabled for now
     }
 
     showMessage(message, isEnd = false) {

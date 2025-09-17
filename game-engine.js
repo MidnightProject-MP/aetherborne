@@ -182,7 +182,7 @@ class GameEngine {
         const target = this.gameState.entities.get(targetId);
 
         if (!target) {
-            console.log(`[GameEngine] Could not find target entity with ID ${targetId}. It might be on a subsequent map.`);
+            Logger.log(`[GameEngine] Could not find target entity with ID ${targetId}. It might be on a subsequent map.`);
             return;
         }
 
@@ -192,7 +192,7 @@ class GameEngine {
             if (target.stats.hp <= 0) {
                 player.stats.xp += target.stats.xp || 10;
                 this.gameState.entities.delete(target.id);
-                console.log(`[GameEngine] Player defeated ${target.name} and gained ${target.stats.xp || 10} XP. Total XP: ${player.stats.xp}`);
+                Logger.log(`[GameEngine] Player defeated ${target.name} and gained ${target.stats.xp || 10} XP. Total XP: ${player.stats.xp}`);
             }
             return;
         }
@@ -201,11 +201,11 @@ class GameEngine {
         if (target.type === 'portal') {
             const nextMapId = target.nextMapId;
             if (nextMapId) {
-                console.log(`[GameEngine] Player interacted with portal ${target.name}. Transitioning to map ${nextMapId}.`);
+                Logger.log(`[GameEngine] Player interacted with portal ${target.name}. Transitioning to map ${nextMapId}.`);
                 const newMapTemplate = this.gameConfig.maps[nextMapId]?.maptemplate;
 
                 if (!newMapTemplate) {
-                    console.log(`[GameEngine] ERROR - Could not find map template for ${nextMapId}. Halting transition.`);
+                    Logger.log(`[GameEngine] ERROR - Could not find map template for ${nextMapId}. Halting transition.`);
                     return;
                 }
 
@@ -216,7 +216,7 @@ class GameEngine {
                 this.initializeEntitiesForNewMap();
 
             } else {
-                console.log(`[GameEngine] Player interacted with final portal. Dungeon complete.`);
+                Logger.log(`[GameEngine] Player interacted with final portal. Dungeon complete.`);
             }
         }
     }
@@ -237,12 +237,12 @@ class GameEngine {
         const skillConfig = this.gameConfig.skills[skillId];
 
         if (!skillConfig) {
-            console.log(`[GameEngine] Player tried to use unknown skill: ${skillId}`);
+            Logger.log(`[GameEngine] Player tried to use unknown skill: ${skillId}`);
             return;
         }
 
         // This is a very simplified simulation. A real one would check AP, MP, cooldowns, etc.
-        console.log(`[GameEngine] Player uses skill: ${skillConfig.name}`);
+        Logger.log(`[GameEngine] Player uses skill: ${skillConfig.name}`);
 
         for (const effect of skillConfig.effects) {
             switch (effect.type) {
@@ -261,11 +261,11 @@ class GameEngine {
                             const damage = effect.baseAmount || 10;
                             if (entity.stats && entity.stats.hp > 0) {
                                 entity.stats.hp -= damage;
-                                console.log(`[GameEngine] Skill hits ${entity.name} for ${damage} damage.`);
+                                Logger.log(`[GameEngine] Skill hits ${entity.name} for ${damage} damage.`);
                                 if (entity.stats.hp <= 0) {
                                     player.stats.xp += entity.stats.xp || 10;
                                     this.gameState.entities.delete(entity.id);
-                                    console.log(`[GameEngine] Player defeated ${entity.name} with a skill.`);
+                                    Logger.log(`[GameEngine] Player defeated ${entity.name} with a skill.`);
                                 }
                             }
                         }
@@ -353,7 +353,7 @@ function logPlayerReplay(sheetName, sessionId, replayLog, finalState, isVerified
  * Fetches and returns the top 10 high scores from the 'HighScores' sheet.
  */
 function handleGetHighScores() {
-  console.log('Action: handleGetHighScores');
+  Logger.log('Action: handleGetHighScores');
   const sheet = getSheet('HighScores');
   if (!sheet) return [];
   
@@ -395,7 +395,7 @@ function sheetToObjects(sheet) {
     // --- NEW VALIDATION ---
     // Check if the headers are valid. If the first header is empty, assume the row is bad.
     if (!headers || !headers[0]) {
-        console.error(`ERROR: Invalid or empty header row found in sheet '${sheet.getName()}'. Please ensure the first row contains valid headers.`);
+        Logger.log(`ERROR: Invalid or empty header row found in sheet '${sheet.getName()}'. Please ensure the first row contains valid headers.`);
         return {}; // Return an empty object to prevent crashes
     }
     // --- END VALIDATION ---
@@ -421,7 +421,7 @@ function sheetToObjects(sheet) {
                 try {
                     value = JSON.parse(value);
                 } catch (e) {
-                    console.error(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
+                    Logger.log(`Failed to parse JSON for ID '${id}' in column '${header}': ${value}`);
                     // Smart default: if the header implies a list/array, default to an empty array.
                     const lowerHeader = header.toLowerCase();
                     const isArrayLike = lowerHeader.includes("skills") || lowerHeader.includes("traits") || lowerHeader.includes("components");
@@ -440,19 +440,19 @@ function sheetToObjects(sheet) {
  * Fetches all core game configuration data from their respective sheets.
  */
 function handleGetGameConfig() {
-    console.log('Action: handleGetGameConfig');
+    Logger.log('Action: handleGetGameConfig');
     const cache = CacheService.getScriptCache();
     const cacheKey = 'gameConfig_v2'; // Use a versioned key to easily invalidate if structure changes.
 
     // 1. Try to get the config from the cache.
     const cachedConfig = cache.get(cacheKey);
     if (cachedConfig) {
-        console.log("DEBUG: Game config loaded from cache.");
+        Logger.log("DEBUG: Game config loaded from cache.");
         return JSON.parse(cachedConfig);
     }
 
     // 2. If not in cache, fetch from sheets (the slow part).
-    console.log("DEBUG: Game config cache miss. Fetching from sheets...");
+    Logger.log("DEBUG: Game config cache miss. Fetching from sheets...");
     const archetypes = sheetToObjects(getSheet('Archetypes'));
     const skills = sheetToObjects(getSheet('Skills'));
     const traits = sheetToObjects(getSheet('Traits'));
@@ -494,7 +494,7 @@ function handleGetGameConfig() {
     // 3. Store the newly fetched config in the cache for next time.
     // Cache for 10 minutes (600 seconds). Adjust as needed.
     cache.put(cacheKey, JSON.stringify(gameConfig), 600);
-    console.log("DEBUG: Game config stored in cache.");
+    Logger.log("DEBUG: Game config stored in cache.");
 
     return gameConfig;
 }
@@ -505,7 +505,7 @@ function handleGetGameConfig() {
  * @returns {Object} A characterData object ready for the client.
  */
 function handleGetPlayerData(payload) {
-    console.log(`Action: handleGetPlayerData, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleGetPlayerData, Payload: ${JSON.stringify(payload)}`);
     const playerId = payload.playerId;
     if (!playerId) {
         throw new Error("Parameter 'playerId' is required for action 'getPlayerData'.");
@@ -524,9 +524,9 @@ function handleGetPlayerData(payload) {
     }
 
     // --- Enhanced Debugging ---
-    console.log(`DEBUG: Archetype found: ${JSON.stringify(archetype)}`);
-    console.log(`DEBUG: Value of archetype.skills: ${JSON.stringify(archetype.skills)}`);
-    console.log(`DEBUG: Is archetype.skills an array? ${Array.isArray(archetype.skills)}`);
+    Logger.log(`DEBUG: Archetype found: ${JSON.stringify(archetype)}`);
+    Logger.log(`DEBUG: Value of archetype.skills: ${JSON.stringify(archetype.skills)}`);
+    Logger.log(`DEBUG: Is archetype.skills an array? ${Array.isArray(archetype.skills)}`);
 
     // Combine data to match the structure from CharacterCreator
     const finalCharacterData = { ...playerData };
@@ -535,10 +535,10 @@ function handleGetPlayerData(payload) {
     // If the player has a saved stats object, use it. Otherwise, fall back to the archetype's base stats.
     // The 'stats' property is created by sheetToObjects from a 'Stats_JSON' column.
     if (playerData.stats && Object.keys(playerData.stats).length > 0) {
-        console.log(`DEBUG: Loading player from saved stats for player '${playerId}'.`);
+        Logger.log(`DEBUG: Loading player from saved stats for player '${playerId}'.`);
         finalCharacterData.baseStats = playerData.stats;
     } else {
-        console.log(`DEBUG: Initializing player from archetype stats for player '${playerId}'.`);
+        Logger.log(`DEBUG: Initializing player from archetype stats for player '${playerId}'.`);
         finalCharacterData.baseStats = archetype.basestats || {}; // Use normalized key
     }
     finalCharacterData.skills = Array.isArray(archetype.skills) ? [...archetype.skills] : [];
@@ -599,7 +599,7 @@ function runAiAgent() {
   }
   
   logAiReplay(agentSheetName, sessionId, seed, mapTemplate, replayLog, game.gameState);
-  console.log(`AI agent session completed: ${sessionId}`);
+  Logger.log(`AI agent session completed: ${sessionId}`);
 }
 
 /**
@@ -621,7 +621,7 @@ function doGet(e) {
  * @returns {Object} The full replay data object.
  */
 function handleGetReplay(payload) {
-    console.log(`Action: handleGetReplay, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleGetReplay, Payload: ${JSON.stringify(payload)}`);
     const sessionId = payload.sessionId;
     if (!sessionId) throw new Error("Parameter 'sessionId' is required for action 'getReplay'.");
 
@@ -643,7 +643,7 @@ function handleGetReplay(payload) {
     const sessionsSheet = getSheet('GameSessions');
     if (!sessionsSheet) throw new Error("Sheet 'GameSessions' not found.");
     const sessionsValues = sessionsSheet.getDataRange().getValues();
-    console.log(`Searching for session '${sessionId}' in ${sessionsValues.length} rows.`);
+    Logger.log(`Searching for session '${sessionId}' in ${sessionsValues.length} rows.`);
     let seed = null;
     let versionedMapId = null;
     let initialCharacterData = null; // Declare the variable to hold the parsed data.
@@ -654,17 +654,17 @@ function handleGetReplay(payload) {
             versionedMapId = sessionsValues[i][2];
             const initialCharacterDataString = sessionsValues[i][5];
             if (initialCharacterDataString) {
-                console.log(`Found character data string for session '${sessionId}'.`);
+                Logger.log(`Found character data string for session '${sessionId}'.`);
                 initialCharacterData = JSON.parse(initialCharacterDataString);
             } else {
-                console.log(`Session '${sessionId}' found, but its character data string is empty.`);
+                Logger.log(`Session '${sessionId}' found, but its character data string is empty.`);
             }
             break;
         }
     }
     if (!seed || !versionedMapId || !initialCharacterData) {
         // This detailed log helps distinguish between a missing session and incomplete data.
-        console.error(`Incomplete session data for '${sessionId}': seed=${seed}, mapId=${versionedMapId}, charDataExists=${!!initialCharacterData}`);
+        Logger.log(`Incomplete session data for '${sessionId}': seed=${seed}, mapId=${versionedMapId}, charDataExists=${!!initialCharacterData}`);
         throw new Error(`Initial session data (including character) for sessionId '${sessionId}' not found in GameSessions.`);
     }
 
@@ -684,7 +684,7 @@ function handleGetReplay(payload) {
  * Fetches and returns all players from the 'Players' sheet.
  */
 function handleGetPlayers() {
-    console.log('Action: handleGetPlayers');
+    Logger.log('Action: handleGetPlayers');
     const sheet = getSheet('Players');
     if (!sheet) return [];
     const data = sheet.getDataRange().getValues();
@@ -708,7 +708,7 @@ function handleGetPlayers() {
  * Adds a new player to the 'Players' sheet.
  */
 function handleAddPlayer(payload) {
-    console.log(`Action: handleAddPlayer, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleAddPlayer, Payload: ${JSON.stringify(payload)}`);
     const { playerId, name, archetypeId, currentMapId } = payload;
     if (!playerId || !name || !archetypeId || !currentMapId) {
         throw new Error("Payload for 'addPlayer' must include 'playerId', 'name', 'archetypeId', and 'currentMapId'.");
@@ -728,7 +728,7 @@ function handleAddPlayer(payload) {
  * Handles a test POST request.
  */
 function handleTestPost() {
-    console.log('Action: handleTestPost');
+    Logger.log('Action: handleTestPost');
     return { status: 'success', message: 'hello world!' };
 }
 
@@ -736,14 +736,14 @@ function handleTestPost() {
  * Handles starting a new game session.
  */
 function handleNewGame(payload) {
-    console.log(`Action: handleNewGame, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleNewGame, Payload: ${JSON.stringify(payload)}`);
     let { mapId, characterData } = payload;
     if (!mapId || !characterData) {
         throw new Error("Payload for 'newGame' must include 'mapId' and 'characterData'.");
     }
 
     if (characterData.playerid) {
-        console.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
+        Logger.log(`New game request for existing player: ${characterData.playerid}. Fetching authoritative data.`);
         const authoritativeCharacterData = handleGetPlayerData({ playerId: characterData.playerid });
         characterData = authoritativeCharacterData;
         mapId = characterData.currentmapid;
@@ -780,7 +780,7 @@ function handleNewGame(payload) {
  * Handles updating a player's persistent state.
  */
 function handleUpdatePlayerState(payload) {
-    console.log(`Action: handleUpdatePlayerState, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleUpdatePlayerState, Payload: ${JSON.stringify(payload)}`);
     const { playerId, finalState } = payload;
     if (!playerId || !finalState) {
         throw new Error("Payload for 'updatePlayerState' must include 'playerId' and 'finalState'.");
@@ -815,7 +815,7 @@ function handleUpdatePlayerState(payload) {
     const updateRange = playersSheet.getRange(playerSheetRow, 4, 1, 2); // (row, start_col, num_rows, num_cols)
     updateRange.setValues([[newMapId, statsJson]]);
 
-    console.log(`DEBUG: Updated player '${playerId}' with MapID '${newMapId}' and stats: ${statsJson}`);
+    Logger.log(`DEBUG: Updated player '${playerId}' with MapID '${newMapId}' and stats: ${statsJson}`);
 
     return { status: 'success', message: `Player ${playerId} state updated.`};
 }
@@ -824,7 +824,7 @@ function handleUpdatePlayerState(payload) {
  * Handles submission of a player's game replay for validation.
  */
 function handleSubmitReplay(payload) {
-    console.log(`Action: handleSubmitReplay, Payload: ${JSON.stringify(payload)}`);
+    Logger.log(`Action: handleSubmitReplay, Payload: ${JSON.stringify(payload)}`);
     const { sessionId, replayLog, playerName } = payload;
     if (!sessionId || !replayLog || !playerName) {
         throw new Error("Payload for 'submitReplay' must include 'sessionId', 'replayLog', and 'playerName'.");
@@ -962,8 +962,8 @@ function doPost(e) {
 
   try {
     // Log the key elements of the request as requested.
-    console.log(`--- API Request Received ---`);
-    console.log(`Request Body: ${requestBody}`);
+    Logger.log(`--- API Request Received ---`);
+    Logger.log(`Request Body: ${requestBody}`);
 
     const request = JSON.parse(requestBody);
     const action = request.action;
@@ -1010,11 +1010,11 @@ function doPost(e) {
     }
   } catch (error) {
     // Log the full stack trace for better debugging in Apps Script logs.
-    console.error('doPost Error:', error.stack);
+    Logger.log(`doPost Error: ${error.stack}`);
     // Also add a simpler log for quick diagnosis in the execution logs.
-    console.log(`--- API Request ERROR ---`);
-    console.log(`Failed on request: ${requestBody}`);
-    console.log(`Error message: ${error.message}`);
+    Logger.log(`--- API Request ERROR ---`);
+    Logger.log(`Failed on request: ${requestBody}`);
+    Logger.log(`Error message: ${error.message}`);
 
     const errorPayload = {
       status: 'error',

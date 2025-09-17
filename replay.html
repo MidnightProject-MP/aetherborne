@@ -36,7 +36,32 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 1.5rem;
+            gap: 1rem;
+            font-family: 'Roboto', sans-serif;
+        }
+        #replay-controls .btn {
+            font-size: 1.25rem;
+            padding: 0.5rem 0.75rem;
+            min-width: 50px; /* Ensure buttons have a decent width */
+            line-height: 1;
+        }
+        #replay-controls .turn-counter {
+            font-size: 1rem;
+            font-weight: 500;
+            min-width: 120px;
+            text-align: center;
+        }
+        #replay-controls .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #replay-controls select {
+            background-color: #4a5568;
+            border: 1px solid #718096;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            color: white;
         }
         #status-message {
             position: absolute;
