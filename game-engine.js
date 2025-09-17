@@ -3,6 +3,8 @@
  * It contains a simplified game engine for replay validation and all backend API handlers.
  */
 
+const SCRIPT_VERSION = "1.1.0"; // Increment this with significant backend changes.
+
 /**
  * Generates a UUID-like string using a provided seeded pseudo-random number generator.
  * This is the server-side equivalent of the client's function in utils.js.
@@ -998,7 +1000,11 @@ function doPost(e) {
       case undefined:
       case null:
         // Default ping action if no action is specified
-        return createJsonResponse({ status: 'success', message: 'Ping successful. API is listening for POST requests.' });
+        return createJsonResponse({ 
+          status: 'success', 
+          message: 'Ping successful. API is listening for POST requests.',
+          version: SCRIPT_VERSION 
+        });
       default:
         throw new Error(`Unknown action: '${action}'.`);
     }
